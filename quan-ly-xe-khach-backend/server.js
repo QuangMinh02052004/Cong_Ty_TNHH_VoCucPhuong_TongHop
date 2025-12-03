@@ -16,6 +16,7 @@ app.use('/api/timeslots', require('./routes/timeSlots'));
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/drivers', require('./routes/drivers'));
 app.use('/api/vehicles', require('./routes/vehicles'));
+app.use('/api/stations', require('./routes/stations'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -36,6 +37,7 @@ app.get('/', (req, res) => {
       bookings: '/api/bookings',
       drivers: '/api/drivers',
       vehicles: '/api/vehicles',
+      stations: '/api/stations',
       health: '/api/health'
     }
   });

@@ -52,7 +52,7 @@ router.post('/', async (req, res) => {
     const {
       timeSlotId, phone, name, gender, nationality, pickupMethod,
       pickupAddress, dropoffMethod, note, seatNumber, amount, paid,
-      timeSlot, date
+      timeSlot, date, route
     } = req.body;
 
     const pool = await getConnection();
@@ -72,17 +72,18 @@ router.post('/', async (req, res) => {
       .input('paid', sql.Decimal(18, 2), paid || 0)
       .input('timeSlot', sql.VarChar(10), timeSlot || '')
       .input('date', sql.VarChar(20), date || '')
+      .input('route', sql.NVarChar(100), route || '')
       .query(`
         INSERT INTO Bookings (
           timeSlotId, phone, name, gender, nationality, pickupMethod,
           pickupAddress, dropoffMethod, note, seatNumber, amount, paid,
-          timeSlot, date
+          timeSlot, date, route
         )
         OUTPUT INSERTED.*
         VALUES (
           @timeSlotId, @phone, @name, @gender, @nationality, @pickupMethod,
           @pickupAddress, @dropoffMethod, @note, @seatNumber, @amount, @paid,
-          @timeSlot, @date
+          @timeSlot, @date, @route
         )
       `);
 
@@ -99,7 +100,7 @@ router.put('/:id', async (req, res) => {
     const {
       timeSlotId, phone, name, gender, nationality, pickupMethod,
       pickupAddress, dropoffMethod, note, seatNumber, amount, paid,
-      timeSlot, date
+      timeSlot, date, route
     } = req.body;
 
     const pool = await getConnection();
@@ -120,6 +121,7 @@ router.put('/:id', async (req, res) => {
       .input('paid', sql.Decimal(18, 2), paid || 0)
       .input('timeSlot', sql.VarChar(10), timeSlot || '')
       .input('date', sql.VarChar(20), date || '')
+      .input('route', sql.NVarChar(100), route || '')
       .query(`
         UPDATE Bookings
         SET
@@ -137,6 +139,7 @@ router.put('/:id', async (req, res) => {
           paid = @paid,
           timeSlot = @timeSlot,
           date = @date,
+          route = @route,
           updatedAt = GETDATE()
         OUTPUT INSERTED.*
         WHERE id = @id
@@ -176,7 +179,8 @@ router.patch('/:id', async (req, res) => {
       amount: { type: sql.Decimal(18, 2) },
       paid: { type: sql.Decimal(18, 2) },
       timeSlot: { type: sql.VarChar(10) },
-      date: { type: sql.VarChar(20) }
+      date: { type: sql.VarChar(20) },
+      route: { type: sql.NVarChar(100) }
     };
 
     Object.keys(updates).forEach(field => {

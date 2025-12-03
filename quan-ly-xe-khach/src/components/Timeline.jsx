@@ -9,14 +9,6 @@ const Timeline = () => {
   const vehiclesList = vehicles;
 
   const [tripInfo, setTripInfo] = useState({
-    vehicleCode: '60BO5307',
-    driverName: 'TX Thanh Bắc',
-    driverPhone: '0918026316',
-    departureTime: '05:30',
-    departureDate: '26-11-2025',
-    startStation: 'Trạm An Đông',
-    endStation: 'Trạm Long Khánh',
-    arrivalTime: '08:30',
   });
 
   const currentBookings = selectedTrip ? bookings.filter(b => b.timeSlotId === selectedTrip.id) : [];

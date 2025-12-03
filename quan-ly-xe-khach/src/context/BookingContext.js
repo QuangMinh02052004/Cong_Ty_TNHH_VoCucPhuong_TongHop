@@ -11,7 +11,22 @@ export const useBooking = () => {
   return context;
 };
 
+// Helper function để format ngày thành DD-MM-YYYY
+const formatDate = (date) => {
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
 export const BookingProvider = ({ children }) => {
+  // State cho ngày đang chọn (mặc định là hôm nay)
+  const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
+
+  // State cho tuyến đường đang chọn (mặc định là Sài Gòn - Long Khánh)
+  const [selectedRoute, setSelectedRoute] = useState('Sài Gòn- Long Khánh');
+
   // State cho danh sách đặt vé
   const [bookings, setBookings] = useState([]);
 
@@ -24,6 +39,9 @@ export const BookingProvider = ({ children }) => {
   // State để theo dõi việc hiển thị form hành khách
   const [showPassengerForm, setShowPassengerForm] = useState(false);
 
+  // State cho số ghế đang chọn
+  const [selectedSeatNumber, setSelectedSeatNumber] = useState(null);
+
   // State cho các khung giờ
   const [timeSlots, setTimeSlots] = useState([]);
 
@@ -33,6 +51,20 @@ export const BookingProvider = ({ children }) => {
 
   // State loading
   const [loading, setLoading] = useState(true);
+
+  // Lọc timeslots theo ngày VÀ tuyến đường đang chọn
+  const currentDayTimeSlots = timeSlots.filter(slot => {
+    const matchDate = slot.date === selectedDate;
+    const matchRoute = slot.route === selectedRoute;
+    return matchDate && matchRoute;
+  });
+
+  // Lọc bookings theo ngày VÀ tuyến đường đang chọn
+  const currentDayBookings = bookings.filter(booking => {
+    const matchDate = booking.date === selectedDate;
+    const matchRoute = booking.route === selectedRoute;
+    return matchDate && matchRoute;
+  });
 
   // Load dữ liệu ban đầu từ database
   useEffect(() => {
@@ -53,11 +85,8 @@ export const BookingProvider = ({ children }) => {
         setDrivers(driversData);
         setVehicles(vehiclesData);
 
-        // Chọn khung giờ đầu tiên nếu có
-        if (slotsData.length > 0 && !selectedTrip) {
-          setSelectedTrip(slotsData[0]);
-          setIsSlotSelected(true);
-        }
+        // Lấy danh sách các ngày có trong database
+        const uniqueDates = [...new Set(slotsData.map(slot => slot.date))];
 
         console.log('✅ Đã load dữ liệu từ database:', {
           timeSlots: slotsData.length,
@@ -65,6 +94,8 @@ export const BookingProvider = ({ children }) => {
           drivers: driversData.length,
           vehicles: vehiclesData.length,
         });
+        console.log('📅 Các ngày có timeslots trong database:', uniqueDates);
+        console.log('📅 Ngày hiện tại đang chọn:', formatDate(new Date()));
 
       } catch (error) {
         console.error('❌ Lỗi load dữ liệu:', error);
@@ -76,6 +107,92 @@ export const BookingProvider = ({ children }) => {
     loadData();
   }, []);
 
+  // Tạo timeslots cho ngày mới và tuyến mới (template khác nhau cho từng tuyến)
+  const createTimeSlotsForDate = async (date, route) => {
+    try {
+      console.log(`🔄 Đang tạo timeslots cho ngày ${date}, tuyến ${route}...`);
+
+      // Template khung giờ khác nhau cho từng tuyến
+      let timeTemplate;
+
+      if (route === 'Long Khánh - Sài Gòn') {
+        // Tuyến Long Khánh - Sài Gòn: 03:30 - 18:00 (30 khung giờ)
+        timeTemplate = [
+          '03:30', '04:00', '04:30', '05:00', '05:30', '06:00', '06:30', '07:00', '07:30', '08:00',
+          '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00',
+          '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00'
+        ];
+        console.log(`📋 Sử dụng template Long Khánh - Sài Gòn (03:30 - 18:00)`);
+      } else {
+        // Tuyến Sài Gòn- Long Khánh: 05:30 - 20:00 (30 khung giờ)
+        timeTemplate = [
+          '05:30', '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00',
+          '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00',
+          '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00'
+        ];
+        console.log(`📋 Sử dụng template Sài Gòn- Long Khánh (05:30 - 20:00)`);
+      }
+
+      const newSlots = [];
+      for (const time of timeTemplate) {
+        const slotData = {
+          time: time,
+          date: date,
+          route: route,  // Thêm tuyến đường
+          type: 'Xe 28G',
+          code: null,  // Biển số trống
+          driver: null,  // Tên tài xế trống
+          phone: null,  // Số điện thoại trống
+        };
+
+        const createdSlot = await timeSlotAPI.create(slotData);
+        newSlots.push(createdSlot);
+      }
+
+      const updated = [...timeSlots, ...newSlots];
+      setTimeSlots(sortTimeSlots(updated));
+      console.log(`✅ Đã tạo ${newSlots.length} timeslots cho ngày ${date}, tuyến ${route}`);
+      return newSlots;
+    } catch (error) {
+      console.error('❌ Lỗi tạo timeslots:', error);
+      throw error;
+    }
+  };
+
+  // Reset tất cả state khi chuyển ngày hoặc tuyến (để tránh hiển thị dữ liệu cũ)
+  useEffect(() => {
+    const handleDateOrRouteChange = async () => {
+      console.log(`🔄 Đang chuyển sang ngày ${selectedDate}, tuyến ${selectedRoute}...`);
+
+      // Reset các state liên quan đến việc đặt vé
+      setSelectedSeatNumber(null);
+      setShowPassengerForm(false);
+      setIsSlotSelected(false);
+      setSelectedTrip(null);
+
+      // Sau khi reset, kiểm tra xem ngày và tuyến này có timeslots chưa
+      if (!loading) {
+        // Lọc timeslots của ngày và tuyến hiện tại
+        const slotsForDateAndRoute = timeSlots.filter(slot =>
+          slot.date === selectedDate && slot.route === selectedRoute
+        );
+
+        if (slotsForDateAndRoute.length > 0) {
+          // Đã có timeslots, chọn khung giờ đầu tiên
+          setSelectedTrip(slotsForDateAndRoute[0]);
+          setIsSlotSelected(true);
+          console.log(`✅ Đã chuyển sang ngày ${selectedDate}, tuyến ${selectedRoute}, có ${slotsForDateAndRoute.length} timeslots`);
+        } else {
+          // Chưa có timeslots, tạo mới
+          console.log(`⚠️ Ngày ${selectedDate}, tuyến ${selectedRoute} chưa có timeslots, đang tạo...`);
+          await createTimeSlotsForDate(selectedDate, selectedRoute);
+        }
+      }
+    };
+
+    handleDateOrRouteChange();
+  }, [selectedDate, selectedRoute, loading]); // ✅ Theo dõi cả ngày và tuyến
+
   // Thêm booking mới
   const addBooking = async (bookingData) => {
     try {
@@ -84,6 +201,7 @@ export const BookingProvider = ({ children }) => {
         timeSlotId: selectedTrip.id,
         timeSlot: selectedTrip.time,
         date: selectedTrip.date,
+        route: selectedTrip.route,  // Thêm tuyến đường
       };
 
       const newBooking = await bookingAPI.create(newBookingData);
@@ -164,7 +282,8 @@ export const BookingProvider = ({ children }) => {
     try {
       const slotData = {
         time: newSlot.time || '06:00',
-        date: newSlot.date || '28/28',
+        date: newSlot.date || selectedDate,  // Sử dụng ngày đang chọn
+        route: newSlot.route || selectedRoute,  // ✅ Thêm trường route
         type: newSlot.type || 'Xe 28G',
         code: newSlot.code || '',
         driver: newSlot.driver || '',
@@ -234,14 +353,22 @@ export const BookingProvider = ({ children }) => {
   };
 
   const value = {
+    selectedDate,
+    setSelectedDate,
+    selectedRoute,
+    setSelectedRoute,
     bookings,
+    currentDayBookings,
     selectedTrip,
     setSelectedTrip,
     isSlotSelected,
     setIsSlotSelected,
     showPassengerForm,
     setShowPassengerForm,
+    selectedSeatNumber,
+    setSelectedSeatNumber,
     timeSlots,
+    currentDayTimeSlots,
     drivers,
     vehicles,
     loading,
@@ -249,10 +376,12 @@ export const BookingProvider = ({ children }) => {
     addNewTimeSlot,
     changeTimeSlotTime,
     deleteTimeSlot,
+    createTimeSlotsForDate,
     addBooking,
     updateBooking,
     deleteBooking,
     getBookingsByTimeSlot,
+    formatDate,
   };
 
   return (

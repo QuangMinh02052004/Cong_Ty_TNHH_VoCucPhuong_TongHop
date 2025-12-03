@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useBooking } from '../context/BookingContext';
 
 const TimeSlotsNew = () => {
-  const { selectedTrip, setSelectedTrip, getBookingsByTimeSlot, setIsSlotSelected, timeSlots, updateTimeSlot, addNewTimeSlot, changeTimeSlotTime, deleteTimeSlot, drivers, vehicles } = useBooking();
+  const { selectedTrip, setSelectedTrip, getBookingsByTimeSlot, setIsSlotSelected, currentDayTimeSlots, updateTimeSlot, addNewTimeSlot, changeTimeSlotTime, deleteTimeSlot, drivers, vehicles } = useBooking();
   const [editingSlot, setEditingSlot] = useState(null);
   const [editData, setEditData] = useState({});
   const [showAddSlotModal, setShowAddSlotModal] = useState(false);
@@ -28,7 +28,6 @@ const TimeSlotsNew = () => {
 
   // Kiểm tra xe đã xuất bến chưa
   const isDeparted = (timeSlot) => {
-    gem
     const [hours, minutes] = timeSlot.split(':').map(Number);
     const slotTimeInMinutes = hours * 60 + minutes;
     return getCurrentTime() > slotTimeInMinutes;
@@ -105,13 +104,19 @@ const TimeSlotsNew = () => {
       {/* Header thông báo */}
       <div className="mb-2 p-2 bg-blue-50 border-l-4 border-blue-500">
         <p className="text-xs font-semibold text-blue-800">
-          Chuyến đang chọn: <span className="text-blue-600 text-sm">{selectedTrip.time}</span> - {selectedTrip.date}
-          {selectedTrip.code && <span className="ml-2 text-xs">({selectedTrip.code})</span>}
+          {selectedTrip ? (
+            <>
+              Chuyến đang chọn: <span className="text-blue-600 text-sm">{selectedTrip.time}</span> - {selectedTrip.date}
+              {selectedTrip.code && <span className="ml-2 text-xs">({selectedTrip.code})</span>}
+            </>
+          ) : (
+            "Chọn một khung giờ để xem thông tin chi tiết"
+          )}
         </p>
       </div>
 
       <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-10 gap-1">
-        {timeSlots.map((slot, index) => {
+        {currentDayTimeSlots.map((slot, index) => {
           const bookingsCount = getBookingsByTimeSlot(slot.id).length;
           const isSelected = selectedTrip?.id === slot.id;
           const hasBookings = bookingsCount > 0;
@@ -132,6 +137,15 @@ const TimeSlotsNew = () => {
                 }
               `}
             >
+              {/* Edit/Delete Button - Top Right Corner */}
+              <button
+                onClick={(e) => handleEditClick(e, slot)}
+                className="absolute top-1 right-1 bg-gray-600 hover:bg-gray-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition z-10"
+                title="Chỉnh sửa/Xóa"
+              >
+                ✎
+              </button>
+
               {/* Time - Large Display */}
               <div className={`text-2xl font-bold text-center ${isSelected ? 'text-blue-700' : 'text-gray-800'}`}>
                 {slot.time}

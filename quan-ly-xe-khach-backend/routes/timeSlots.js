@@ -35,20 +35,21 @@ router.get('/:id', async (req, res) => {
 // POST - Tạo khung giờ mới
 router.post('/', async (req, res) => {
   try {
-    const { time, date, type, code, driver, phone } = req.body;
+    const { time, date, route, type, code, driver, phone } = req.body;
     const pool = await getConnection();
 
     const result = await pool.request()
       .input('time', sql.VarChar(10), time)
       .input('date', sql.VarChar(20), date)
+      .input('route', sql.NVarChar(100), route || '')
       .input('type', sql.NVarChar(50), type)
       .input('code', sql.VarChar(20), code || '')
       .input('driver', sql.NVarChar(100), driver || '')
       .input('phone', sql.VarChar(20), phone || '')
       .query(`
-        INSERT INTO TimeSlots (time, date, type, code, driver, phone)
+        INSERT INTO TimeSlots (time, date, route, type, code, driver, phone)
         OUTPUT INSERTED.*
-        VALUES (@time, @date, @type, @code, @driver, @phone)
+        VALUES (@time, @date, @route, @type, @code, @driver, @phone)
       `);
 
     res.status(201).json(result.recordset[0]);
@@ -61,20 +62,21 @@ router.post('/', async (req, res) => {
 // PUT - Cập nhật khung giờ
 router.put('/:id', async (req, res) => {
   try {
-    const { time, date, type, code, driver, phone } = req.body;
+    const { time, date, route, type, code, driver, phone } = req.body;
     const pool = await getConnection();
 
     const result = await pool.request()
       .input('id', sql.Int, req.params.id)
       .input('time', sql.VarChar(10), time)
       .input('date', sql.VarChar(20), date)
+      .input('route', sql.NVarChar(100), route || '')
       .input('type', sql.NVarChar(50), type)
       .input('code', sql.VarChar(20), code || '')
       .input('driver', sql.NVarChar(100), driver || '')
       .input('phone', sql.VarChar(20), phone || '')
       .query(`
         UPDATE TimeSlots
-        SET time = @time, date = @date, type = @type, code = @code, driver = @driver, phone = @phone, updatedAt = GETDATE()
+        SET time = @time, date = @date, route = @route, type = @type, code = @code, driver = @driver, phone = @phone, updatedAt = GETDATE()
         OUTPUT INSERTED.*
         WHERE id = @id
       `);
@@ -106,6 +108,10 @@ router.patch('/:id', async (req, res) => {
     if (updates.date !== undefined) {
       updateFields.push('date = @date');
       request.input('date', sql.VarChar(20), updates.date);
+    }
+    if (updates.route !== undefined) {
+      updateFields.push('route = @route');
+      request.input('route', sql.NVarChar(100), updates.route);
     }
     if (updates.type !== undefined) {
       updateFields.push('type = @type');

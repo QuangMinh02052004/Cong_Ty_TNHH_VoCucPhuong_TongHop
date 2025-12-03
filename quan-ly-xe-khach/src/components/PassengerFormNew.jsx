@@ -1,8 +1,111 @@
 import React, { useState, useEffect } from 'react';
 import { useBooking } from '../context/BookingContext';
 
+// Danh sách các địa điểm đón/trả
+const stations = [
+  'An Đông',
+  'Ngã 4 Trần Phú-Lê Hồng Phong',
+  'Ngã 4 Trần Phú-Trần Bình Trọng',
+  'Nhà Sách Nguyễn Thị Minh Khai',
+  'BV Từ Dũ - Nguyễn Thị Minh Khai',
+  'Sở Y Tế - Nguyễn Thị Minh Khai',
+  'CV Tao Đàn - Nguyễn Thị Minh Khai',
+  'Trương Định - Nguyễn Thị Minh Khai',
+  'Cung VH Lao Động - Nguyễn Thị Minh Khai',
+  'N4 Nam Ki - Nguyễn Thị Minh Khai',
+  'Ngã 4 Pastuer - Nguyễn Thị Minh Khai',
+  'Nhà VH Thanh Niên  - Nguyễn Thị Minh Khai',
+  'Ngã 3 PK.Khoan - Nguyễn Thị Minh Khai',
+  'Ngã 4 M.Đ.Chi - Nguyễn Thị Minh Khai',
+  'Sân VD Hoa Lư - Nguyễn Thị Minh Khai',
+  'Ngã 4.Đinh Tiên Hoàng - Nguyễn Thị Minh Khai',
+  'Cầu Đen',
+  'Cầu Trắng',
+  'Metro',
+  'Cantavil',
+  'Ngã 4 MK',
+  'Ngã 4 Bình Thái',
+  'Ngã 4 Thủ Đức',
+  'Khu Công Nghệ Cao',
+  'Suối Tiên',
+  'Ngã 4 621',
+  'Tân Vạn',
+  'Ngã 3 Vũng Tàu',
+  'Bồn Nước',
+  'Tam Hiệp',
+  'Amata',
+  'BV Nhi Đồng Nai',
+  'Cầu Sập',
+  'Bến xe Hố Nai',
+  'Chợ Sặt',
+  'Công Viên 30/4',
+  'Bệnh Viện Thánh Tâm',
+  'Nhà thờ Thánh Tâm',
+  'Cây Xăng Lộ Đức',
+  'Nhà thờ Tiên Chu',
+  'Chợ Thái Bình',
+  'Nhà thờ Ngọc Đồng',
+  'Nhà thờ Ngô Xá',
+  'Nhà thờ Sài Quất',
+  'Ngũ Phúc',
+  'Nhà thờ Thái Hoà',
+  'Yên Thế',
+  'Chợ chiều Thanh Hoá',
+  'Nhà thờ Thanh Hoá',
+  'Ngã 3 Trị An',
+  'Nhà thờ Bùi Chu',
+  'Bắc Sơn',
+  'Phú Sơn',
+  'Nhà thờ Tân Thành',
+  'Nhà thờ Tân Bắc',
+  'Suối Đĩa',
+  'Nhà thờ Tân Bình',
+  'Trà Cổ',
+  'Bar Romance',
+  'Nhà thờ Quảng Biên',
+  'Chợ Quảng Biên',
+  'Sân Golf Trảng Bom',
+  'Bưu điện Trảng Bom',
+  'Bờ hồ Trảng Bom',
+  'Cây xăng Thành Thái',
+  'Trạm cân',
+  'KCN Bầu Xéo',
+  'Song Thạch',
+  'Chợ Lộc Hoà',
+  'Thu phí Bầu Cá',
+  'Nhà thờ Tâm An',
+  'Chợ Bầu Cá',
+  'Cây xăng Minh Trí',
+  'Ba cây Xoài Bầu Cá',
+  'Cổng vàng Hưng Long',
+  'Cây xăng Hưng Thịnh',
+  'Sông Thao',
+  'Chùa Vạn Thọ',
+  'Chợ Hưng Nghĩa',
+  'Trạm Giữa',
+  'Cây xăng Tam Hoàng',
+  'Đại Phát Đạt',
+  'Chợ Hưng Lộc',
+  'Nhà thờ Hưng Lộc',
+  'Cây xăng Hưng Lộc',
+  'Mì Quảng Thủy Tiên',
+  'Ngô Quyền Dầu Giây',
+  'Cây xăng Đặng Văn Bích',
+  'Bưu điện Dầu Giây',
+  'xã Xuân Thạnh Dầu Giây',
+  'Trung tâm Hành chính Dầu Giây',
+  'Bến xe Dầu Giây',
+  'Trạm 97',
+  'Cáp Rang',
+  'Bệnh viện Long Khánh',
+  'Cây Xăng Suối Tre',
+  'Dốc Lê Lợi',
+  'Cây xăng 222',
+  'Bến xe Long Khánh'
+];
+
 const PassengerFormNew = () => {
-  const { addBooking, updateBooking, selectedTrip, bookings, setShowPassengerForm } = useBooking();
+  const { addBooking, updateBooking, selectedTrip, bookings, currentDayBookings, setShowPassengerForm, selectedSeatNumber, setSelectedSeatNumber } = useBooking();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -16,6 +119,7 @@ const PassengerFormNew = () => {
     pickupMethod: 'Dọc đường',
     pickupAddress: '',
     dropoffMethod: 'Tại bến',
+    dropoffAddress: '',
     note: '',
     seatNumber: null,
     amount: 100000,
@@ -44,6 +148,7 @@ const PassengerFormNew = () => {
           pickupAddress: found.pickupAddress || '',
           pickupMethod: found.pickupMethod || 'Dọc đường',
           dropoffMethod: found.dropoffMethod || 'Tại bến',
+          dropoffAddress: found.dropoffAddress || '',
           note: found.note || '',
         }));
         return true;
@@ -83,6 +188,18 @@ const PassengerFormNew = () => {
       setIsEditing(false);
       setEditingId(null);
     } else {
+      // Kiểm tra ghế đã được đặt chưa (chỉ cho booking mới)
+      if (formData.seatNumber) {
+        const seatTaken = currentDayBookings.find(
+          booking => booking.timeSlot === selectedTrip.time && booking.seatNumber === formData.seatNumber
+        );
+
+        if (seatTaken) {
+          alert(`⚠️ Ghế ${formData.seatNumber} đã được đặt bởi ${seatTaken.name} (${seatTaken.phone}).\nVui lòng chọn ghế khác!`);
+          return;
+        }
+      }
+
       // Thêm booking mới
       addBooking(formData);
       alert('Đã thêm hành khách thành công!');
@@ -101,6 +218,7 @@ const PassengerFormNew = () => {
       pickupMethod: 'Dọc đường',
       pickupAddress: '',
       dropoffMethod: 'Tại bến',
+      dropoffAddress: '',
       note: '',
       seatNumber: null,
       amount: 100000,
@@ -113,6 +231,7 @@ const PassengerFormNew = () => {
       sendZalo: false,
       autoFill: false,
     });
+    setSelectedSeatNumber(null);
   };
 
   // Hàm để load dữ liệu vào form khi edit (sẽ được gọi từ SeatMap)
@@ -121,6 +240,16 @@ const PassengerFormNew = () => {
     setIsEditing(true);
     setEditingId(booking.id);
   };
+
+  // Tự động điền số ghế khi có ghế được chọn
+  useEffect(() => {
+    if (selectedSeatNumber !== null && !isEditing) {
+      setFormData(prev => ({
+        ...prev,
+        seatNumber: selectedSeatNumber
+      }));
+    }
+  }, [selectedSeatNumber, isEditing]);
 
   // Export hàm này để SeatMap có thể gọi
   useEffect(() => {
@@ -135,7 +264,10 @@ const PassengerFormNew = () => {
           {isEditing ? 'CHỈNH SỬA HÀNH KHÁCH' : 'THÔNG TIN HÀNH KHÁCH'}
         </h2>
         <button
-          onClick={() => setShowPassengerForm(false)}
+          onClick={() => {
+            setShowPassengerForm(false);
+            setSelectedSeatNumber(null);
+          }}
           className="text-gray-400 hover:text-red-500 transition text-2xl font-bold"
           title="Đóng"
         >
@@ -220,9 +352,18 @@ const PassengerFormNew = () => {
             name="pickupAddress"
             value={formData.pickupAddress}
             onChange={handleInputChange}
+            list="pickup-stations-list"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            placeholder="Nhập địa chỉ đón"
+            placeholder="Chọn hoặc nhập địa chỉ đón"
           />
+          <datalist id="pickup-stations-list">
+            {stations.map((station, index) => (
+              <option key={index} value={station} />
+            ))}
+          </datalist>
+          <p className="text-xs text-gray-500 mt-1">
+            💡 Bạn có thể chọn từ danh sách hoặc tự nhập địa chỉ
+          </p>
         </div>
 
         {/* Cách trả */}
@@ -239,6 +380,30 @@ const PassengerFormNew = () => {
             <option value="Tại bến">Tại bến</option>
             <option value="Dọc đường">Dọc đường</option>
           </select>
+        </div>
+
+        {/* Địa chỉ trả */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Địa chỉ trả
+          </label>
+          <input
+            type="text"
+            name="dropoffAddress"
+            value={formData.dropoffAddress}
+            onChange={handleInputChange}
+            list="dropoff-stations-list"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            placeholder="Chọn hoặc nhập địa chỉ trả"
+          />
+          <datalist id="dropoff-stations-list">
+            {stations.map((station, index) => (
+              <option key={index} value={station} />
+            ))}
+          </datalist>
+          <p className="text-xs text-gray-500 mt-1">
+            💡 Bạn có thể chọn từ danh sách hoặc tự nhập địa chỉ
+          </p>
         </div>
 
         {/* Số ghế */}

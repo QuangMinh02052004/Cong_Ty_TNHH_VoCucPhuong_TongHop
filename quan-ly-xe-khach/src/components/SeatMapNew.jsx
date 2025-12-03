@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useBooking } from '../context/BookingContext';
 
 const SeatMapNew = () => {
-  const { bookings, deleteBooking, selectedTrip, setShowPassengerForm, showPassengerForm } = useBooking();
+  const { currentDayBookings, deleteBooking, selectedTrip, setShowPassengerForm, showPassengerForm, setSelectedSeatNumber } = useBooking();
   const [activeTab, setActiveTab] = useState('seatMap');
 
-  // Lọc bookings theo chuyến đang chọn
-  const currentBookings = bookings.filter(
+  // Lọc bookings theo chuyến đang chọn (đã được lọc theo ngày từ context)
+  const currentBookings = currentDayBookings.filter(
     booking => booking.timeSlot === selectedTrip.time
   );
 
@@ -179,7 +179,10 @@ const SeatMapNew = () => {
                       // Ô ghế trống - Click để thêm hành khách
                       <div
                         className="text-center py-8 cursor-pointer hover:bg-gray-100 transition rounded"
-                        onClick={() => setShowPassengerForm(true)}
+                        onClick={() => {
+                          setSelectedSeatNumber(seatNum);
+                          setShowPassengerForm(true);
+                        }}
                       >
                         <div className="text-4xl font-bold text-gray-300 mb-2">
                           Ghế {seatNum}
