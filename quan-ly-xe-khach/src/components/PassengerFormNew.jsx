@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { FaSearch, FaTimesCircle } from 'react-icons/fa';
 import { useBooking } from '../context/BookingContext';
 
 const PassengerFormNew = () => {
@@ -137,10 +136,10 @@ const PassengerFormNew = () => {
         </h2>
         <button
           onClick={() => setShowPassengerForm(false)}
-          className="text-gray-400 hover:text-red-500 transition"
+          className="text-gray-400 hover:text-red-500 transition text-2xl font-bold"
           title="Đóng"
         >
-          <FaTimesCircle size={24} />
+          ×
         </button>
       </div>
 
@@ -161,8 +160,8 @@ const PassengerFormNew = () => {
               placeholder="Nhập số điện thoại"
               required
             />
-            <button className="absolute right-2 top-2 text-blue-600 hover:text-blue-800">
-              <FaSearch />
+            <button className="absolute right-2 top-2 text-blue-600 hover:text-blue-800 text-xs font-semibold">
+              Tìm
             </button>
           </div>
 

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { FaPhoneAlt, FaEdit, FaTrash } from 'react-icons/fa';
 import { useBooking } from '../context/BookingContext';
 
 const SeatMapNew = () => {
@@ -158,21 +157,21 @@ const SeatMapNew = () => {
                         <div className="flex gap-2">
                           <button
                             onClick={() => window.open(`tel:${passenger.phone}`)}
-                            className="flex-1 bg-blue-600 text-white py-1 px-2 rounded text-sm hover:bg-blue-700 transition flex items-center justify-center gap-1"
+                            className="flex-1 bg-blue-600 text-white py-1 px-2 rounded text-sm hover:bg-blue-700 transition flex items-center justify-center"
                           >
-                            <FaPhoneAlt /> Gọi
+                            Gọi
                           </button>
                           <button
                             onClick={() => handleEdit(passenger)}
-                            className="flex-1 bg-yellow-500 text-white py-1 px-2 rounded text-sm hover:bg-yellow-600 transition flex items-center justify-center gap-1"
+                            className="flex-1 bg-yellow-500 text-white py-1 px-2 rounded text-sm hover:bg-yellow-600 transition flex items-center justify-center"
                           >
-                            <FaEdit /> Sửa
+                            Sửa
                           </button>
                           <button
                             onClick={() => handleDelete(passenger.id)}
                             className="bg-red-500 text-white py-1 px-2 rounded text-sm hover:bg-red-600 transition"
                           >
-                            <FaTrash />
+                            Xóa
                           </button>
                         </div>
                       </>

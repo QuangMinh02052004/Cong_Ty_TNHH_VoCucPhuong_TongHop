@@ -2,23 +2,11 @@ import { useState, useEffect } from 'react';
 import { useBooking } from '../context/BookingContext';
 
 const Timeline = () => {
-  const { selectedTrip, bookings, updateTimeSlot } = useBooking();
+  const { selectedTrip, bookings, updateTimeSlot, changeTimeSlotTime, drivers, vehicles } = useBooking();
 
-  // Danh sách tài xế
-  const [driversList, setDriversList] = useState([
-    { id: 1, name: 'TX Thanh Bắc', phone: '0918026316' },
-    { id: 2, name: 'TX. Phong M X', phone: '0912345678' },
-    { id: 3, name: 'TX. Minh', phone: '0987654321' },
-    { id: 4, name: 'TX. Hùng', phone: '0909123456' },
-  ]);
-
-  // Danh sách biển số xe
-  const [vehiclesList, setVehiclesList] = useState([
-    { id: 1, code: '60BO5307', type: 'Xe 28G' },
-    { id: 2, code: '51B26542', type: 'Xe 28G' },
-    { id: 3, code: '51B12345', type: 'Xe 16G' },
-    { id: 4, code: '60BO1234', type: 'Xe 28G' },
-  ]);
+  // Sử dụng danh sách tài xế và xe từ database
+  const driversList = drivers;
+  const vehiclesList = vehicles;
 
   const [tripInfo, setTripInfo] = useState({
     vehicleCode: '60BO5307',
@@ -31,7 +19,7 @@ const Timeline = () => {
     arrivalTime: '08:30',
   });
 
-  const currentBookings = bookings.filter(b => b.timeSlot === selectedTrip.time);
+  const currentBookings = selectedTrip ? bookings.filter(b => b.timeSlotId === selectedTrip.id) : [];
   const totalTickets = currentBookings.length;
   const paidTickets = currentBookings.filter(b => b.paid >= b.amount).length;
   const docDuongCount = currentBookings.filter(b => b.pickupMethod === 'Dọc đường').length;
@@ -69,65 +57,93 @@ const Timeline = () => {
           {/* Biển số - Input with datalist */}
           <div className="flex items-center gap-2">
             <span className="font-semibold">Biển số:</span>
-            <input
-              type="text"
-              list="vehicles-list"
-              value={tripInfo.vehicleCode}
-              onChange={(e) => {
-                const value = e.target.value;
-                setTripInfo({ ...tripInfo, vehicleCode: value });
-                // Tự động cập nhật vào time slot
-                const vehicle = vehiclesList.find(v => v.code === value);
-                if (vehicle) {
-                  updateTimeSlot(selectedTrip.time, {
-                    code: vehicle.code,
-                    type: vehicle.type,
-                  });
-                }
-              }}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none w-32"
-              placeholder="Nhập biển số"
-            />
-            <datalist id="vehicles-list">
-              {vehiclesList.map(vehicle => (
-                <option key={vehicle.id} value={vehicle.code}>
-                  {vehicle.type}
-                </option>
-              ))}
-            </datalist>
+            <div className="relative">
+              <input
+                type="text"
+                list="vehicles-list"
+                value={tripInfo.vehicleCode}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setTripInfo({ ...tripInfo, vehicleCode: value });
+                  // Tự động cập nhật vào time slot
+                  const vehicle = vehiclesList.find(v => v.code === value);
+                  if (vehicle) {
+                    updateTimeSlot(selectedTrip.id, {
+                      code: vehicle.code,
+                      type: vehicle.type,
+                    });
+                  }
+                }}
+                className="px-2 py-1 pr-7 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none w-48"
+                placeholder="Nhập biển số"
+              />
+              {tripInfo.vehicleCode && (
+                <button
+                  onClick={() => {
+                    setTripInfo({ ...tripInfo, vehicleCode: '' });
+                    updateTimeSlot(selectedTrip.id, { code: '', type: '' });
+                  }}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-lg font-bold"
+                  title="Xóa"
+                >
+                  ×
+                </button>
+              )}
+              <datalist id="vehicles-list">
+                {vehiclesList.map(vehicle => (
+                  <option key={vehicle.id} value={vehicle.code}>
+                    {vehicle.type}
+                  </option>
+                ))}
+              </datalist>
+            </div>
           </div>
 
           {/* Tài xế - Input with datalist */}
           <div className="flex items-center gap-2">
             <span className="font-semibold">Tài xế:</span>
             <div className="flex items-center gap-1">
-              <input
-                type="text"
-                list="drivers-list"
-                value={tripInfo.driverName}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setTripInfo({ ...tripInfo, driverName: value });
-                  // Tự động cập nhật số điện thoại nếu chọn từ danh sách
-                  const driver = driversList.find(d => d.name === value);
-                  if (driver) {
-                    setTripInfo(prev => ({ ...prev, driverPhone: driver.phone }));
-                    updateTimeSlot(selectedTrip.time, {
-                      driver: driver.name,
-                      phone: driver.phone,
-                    });
-                  }
-                }}
-                className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none w-32"
-                placeholder="Nhập tên tài xế"
-              />
-              <datalist id="drivers-list">
-                {driversList.map(driver => (
-                  <option key={driver.id} value={driver.name}>
-                    {driver.phone}
-                  </option>
-                ))}
-              </datalist>
+              <div className="relative">
+                <input
+                  type="text"
+                  list="drivers-list"
+                  value={tripInfo.driverName}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setTripInfo({ ...tripInfo, driverName: value });
+                    // Tự động cập nhật số điện thoại nếu chọn từ danh sách
+                    const driver = driversList.find(d => d.name === value);
+                    if (driver) {
+                      setTripInfo(prev => ({ ...prev, driverPhone: driver.phone }));
+                      updateTimeSlot(selectedTrip.id, {
+                        driver: driver.name,
+                        phone: driver.phone,
+                      });
+                    }
+                  }}
+                  className="px-2 py-1 pr-7 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none w-48"
+                  placeholder="Nhập tên tài xế"
+                />
+                {tripInfo.driverName && (
+                  <button
+                    onClick={() => {
+                      setTripInfo({ ...tripInfo, driverName: '', driverPhone: '' });
+                      updateTimeSlot(selectedTrip.id, { driver: '', phone: '' });
+                    }}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-lg font-bold"
+                    title="Xóa"
+                  >
+                    ×
+                  </button>
+                )}
+                <datalist id="drivers-list">
+                  {driversList.map(driver => (
+                    <option key={driver.id} value={driver.name}>
+                      {driver.phone}
+                    </option>
+                  ))}
+                </datalist>
+              </div>
               {tripInfo.driverPhone && (
                 <span className="text-xs text-gray-600">({tripInfo.driverPhone})</span>
               )}
@@ -148,7 +164,14 @@ const Timeline = () => {
             <input
               type="time"
               value={tripInfo.departureTime}
-              onChange={(e) => setTripInfo({ ...tripInfo, departureTime: e.target.value })}
+              onChange={(e) => {
+                const newTime = e.target.value;
+                setTripInfo({ ...tripInfo, departureTime: newTime });
+                // Cập nhật thời gian của khung giờ
+                if (selectedTrip.time !== newTime) {
+                  changeTimeSlotTime(selectedTrip.id, newTime);
+                }
+              }}
               className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
             />
             <input
