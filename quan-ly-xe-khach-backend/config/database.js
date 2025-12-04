@@ -65,6 +65,7 @@ const initDatabase = async () => {
         pickupMethod NVARCHAR(50),
         pickupAddress NVARCHAR(500),
         dropoffMethod NVARCHAR(50),
+        dropoffAddress NVARCHAR(500),
         note NVARCHAR(1000),
         seatNumber INT,
         amount DECIMAL(18,2),
@@ -98,6 +99,101 @@ const initDatabase = async () => {
         createdAt DATETIME DEFAULT GETDATE(),
         updatedAt DATETIME DEFAULT GETDATE()
       )
+    `);
+
+    // Tạo bảng Stations (Trạm dừng)
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Stations' AND xtype='U')
+      CREATE TABLE Stations (
+        id INT PRIMARY KEY IDENTITY(1,1),
+        station_name NVARCHAR(200) NOT NULL,
+        address NVARCHAR(500),
+        station_type NVARCHAR(50),
+        created_at DATETIME DEFAULT GETDATE(),
+        updated_at DATETIME DEFAULT GETDATE()
+      )
+    `);
+
+    // Tạo bảng Users (Người dùng hệ thống)
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Users' AND xtype='U')
+      CREATE TABLE Users (
+        id INT PRIMARY KEY IDENTITY(1,1),
+        username NVARCHAR(50) NOT NULL UNIQUE,
+        password NVARCHAR(255) NOT NULL,
+        fullName NVARCHAR(100) NOT NULL,
+        email NVARCHAR(100),
+        phone NVARCHAR(20),
+        role NVARCHAR(20) DEFAULT 'user',
+        isActive BIT DEFAULT 1,
+        createdAt DATETIME DEFAULT GETDATE(),
+        updatedAt DATETIME DEFAULT GETDATE(),
+        lastLogin DATETIME
+      )
+    `);
+
+    // Tạo bảng Customers (Khách hàng)
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Customers' AND xtype='U')
+      CREATE TABLE Customers (
+        id INT PRIMARY KEY IDENTITY(1,1),
+        phone NVARCHAR(20) NOT NULL UNIQUE,
+        customer_name NVARCHAR(100),
+        address NVARCHAR(255),
+        email NVARCHAR(100),
+        notes NVARCHAR(500),
+        pickupType NVARCHAR(50),
+        pickupLocation NVARCHAR(500),
+        dropoffType NVARCHAR(50),
+        dropoffLocation NVARCHAR(500),
+        total_bookings INT DEFAULT 0,
+        created_at DATETIME DEFAULT GETDATE(),
+        updated_at DATETIME DEFAULT GETDATE()
+      )
+    `);
+
+    // Tạo bảng Freight (Hàng hóa)
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Freight' AND xtype='U')
+      CREATE TABLE Freight (
+        id INT PRIMARY KEY IDENTITY(1,1),
+        time_slot_id INT FOREIGN KEY REFERENCES TimeSlots(id) ON DELETE CASCADE,
+        sender_customer_id INT,
+        receiver_customer_id INT,
+        receiver_name NVARCHAR(100),
+        receiver_phone NVARCHAR(20),
+        receiver_address NVARCHAR(255),
+        pickup_station_id INT,
+        delivery_station_id INT,
+        description NVARCHAR(500) NOT NULL,
+        weight DECIMAL(10,2),
+        size_length DECIMAL(10,2),
+        size_width DECIMAL(10,2),
+        size_height DECIMAL(10,2),
+        quantity INT DEFAULT 1,
+        freight_charge DECIMAL(10,2) DEFAULT 0,
+        cod_amount DECIMAL(10,2) DEFAULT 0,
+        status NVARCHAR(20) DEFAULT 'pending',
+        pickup_time DATETIME,
+        delivery_time DATETIME,
+        special_instructions NVARCHAR(500),
+        created_by INT,
+        updated_by INT,
+        created_at DATETIME DEFAULT GETDATE(),
+        updated_at DATETIME DEFAULT GETDATE()
+      )
+    `);
+
+    // Migration: Thêm cột dropoffAddress nếu chưa có
+    await pool.request().query(`
+      IF NOT EXISTS (
+        SELECT * FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = 'Bookings' AND COLUMN_NAME = 'dropoffAddress'
+      )
+      BEGIN
+        ALTER TABLE Bookings ADD dropoffAddress NVARCHAR(500)
+        PRINT 'Added dropoffAddress column to Bookings table'
+      END
     `);
 
     console.log('✅ Database tables đã được khởi tạo!');
@@ -162,6 +258,20 @@ const insertSampleData = async (pool) => {
         (${timeSlotId}, '0989347425', N'22. Ngã 4 Bình Thái', 'female', N'Việt Nam', N'Dọc đường', N'Trạm Long Khánh', N'Tại bến', N'1 ghế', 2, 100000, 0, '05:30', '26-11-2025')
       `);
       console.log('✅ Đã thêm dữ liệu mẫu cho TimeSlots và Bookings');
+    }
+
+    // Kiểm tra Users
+    const userCount = await pool.request().query('SELECT COUNT(*) as count FROM Users');
+    if (userCount.recordset[0].count === 0) {
+      // Thêm user admin mặc định (password: admin123)
+      await pool.request().query(`
+        INSERT INTO Users (username, password, fullName, role)
+        VALUES
+        ('admin', 'admin123', N'Administrator', 'admin'),
+        ('quanly1', 'admin123', N'Quản lý 1', 'manager'),
+        ('nhanvien1', 'admin123', N'Nhân viên 1', 'user')
+      `);
+      console.log('✅ Đã thêm dữ liệu mẫu cho Users');
     }
 
   } catch (err) {

@@ -1,14 +1,99 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBooking } from '../context/BookingContext';
+import PrintBookingList from './PrintBookingList';
+import { findStationWithNumber } from '../data/stations';
 
 const SeatMapNew = () => {
-  const { currentDayBookings, deleteBooking, selectedTrip, setShowPassengerForm, showPassengerForm, setSelectedSeatNumber } = useBooking();
+  const { currentDayBookings, deleteBooking, selectedTrip, setShowPassengerForm, showPassengerForm, setSelectedSeatNumber, selectedRoute, selectedDate } = useBooking();
   const [activeTab, setActiveTab] = useState('seatMap');
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [sortedBookings, setSortedBookings] = useState([]);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
 
   // Lọc bookings theo chuyến đang chọn (đã được lọc theo ngày từ context)
   const currentBookings = currentDayBookings.filter(
     booking => booking.timeSlot === selectedTrip.time
   );
+
+  // Đồng bộ danh sách với currentBookings (giữ nguyên thứ tự đã sắp)
+  useEffect(() => {
+    const currentIds = currentBookings.map(b => b.id);
+    const sortedIds = sortedBookings.map(b => b.id);
+
+    // Kiểm tra xem có booking mới hoặc bị xóa không
+    const hasNewBookings = currentIds.some(id => !sortedIds.includes(id));
+    const hasDeletedBookings = sortedIds.some(id => !currentIds.includes(id));
+
+    if (hasNewBookings || hasDeletedBookings) {
+      // Giữ lại các booking cũ (theo thứ tự hiện tại)
+      const keptBookings = sortedBookings.filter(b => currentIds.includes(b.id));
+      // Tìm các booking mới
+      const newBookings = currentBookings.filter(b => !sortedIds.includes(b.id));
+      // Thêm booking mới vào cuối
+      setSortedBookings([...keptBookings, ...newBookings]);
+    }
+  }, [currentBookings.length]); // Chỉ trigger khi length thay đổi
+
+  // Xử lý kéo thả
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.currentTarget);
+    e.currentTarget.style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.style.opacity = '1';
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== dropIndex) {
+      const newList = [...sortedBookings];
+      const draggedItem = newList[draggedIndex];
+      newList.splice(draggedIndex, 1);
+      newList.splice(dropIndex, 0, draggedItem);
+      setSortedBookings(newList);
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  // Hàm sắp xếp theo địa chỉ trả (dropoff)
+  const handleSortByAddress = () => {
+    const sorted = [...sortedBookings].sort((a, b) => {
+      const addressA = a.dropoffAddress || a.dropoffMethod || '';
+      const addressB = b.dropoffAddress || b.dropoffMethod || '';
+      return addressA.localeCompare(addressB, 'vi');
+    });
+    setSortedBookings(sorted);
+  };
+
+  // Lấy địa chỉ giao (ưu tiên dropoffAddress, nếu không có thì dùng dropoffMethod)
+  const getDeliveryAddress = (booking) => {
+    // Nếu có dropoffAddress, tìm và thêm STT
+    if (booking.dropoffAddress && booking.dropoffAddress.trim()) {
+      const withNumber = findStationWithNumber(booking.dropoffAddress);
+      return withNumber || booking.dropoffAddress;
+    }
+    // Nếu không có địa chỉ cụ thể, hiển thị phương thức
+    return booking.dropoffMethod || 'Tại bến';
+  };
 
   const handleEdit = (booking) => {
     // Hiện form hành khách
@@ -134,21 +219,13 @@ const SeatMapNew = () => {
                         {/* Info */}
                         <div className="space-y-1 mb-2">
                           <div className="font-semibold text-gray-800">{passenger.name}</div>
-                          <div className="text-sm text-gray-600">
-                            📍 {passenger.pickupAddress}
-                          </div>
-                          <div className="text-sm">
-                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                              passenger.pickupMethod === 'Dọc đường'
-                                ? 'bg-orange-200 text-orange-800'
-                                : 'bg-green-200 text-green-800'
-                            }`}>
-                              {passenger.pickupMethod}
-                            </span>
+                          <div className="text-xs text-gray-500">📍 Điểm trả</div>
+                          <div className="text-sm text-green-700 font-semibold">
+                            {getDeliveryAddress(passenger)}
                           </div>
                           {passenger.note && (
-                            <div className="text-sm text-blue-700 font-semibold">
-                              * {passenger.note}
+                            <div className="text-sm text-blue-700 font-semibold mt-1">
+                              📝 {passenger.note}
                             </div>
                           )}
                         </div>
@@ -199,91 +276,129 @@ const SeatMapNew = () => {
         )}
 
         {activeTab === 'ticketList' && (
-          <div className="overflow-x-auto">
-            <div className="mb-4 flex gap-2">
-              <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                Làm mới
-              </button>
-              <button className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                Sắp xếp
-              </button>
-              <button className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
-                In danh sách
-              </button>
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-lg mb-4">
-              <h3 className="font-bold text-center mb-2">DANH SÁCH HÀNH KHÁCH</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <div className="mb-4 flex justify-between items-center">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
                 <div>
-                  <p><span className="font-semibold">Tuyến:</span> Sài Gòn - Long Khánh</p>
-                  <p><span className="font-semibold">Giờ chạy:</span> {selectedTrip.time} 26-11-2025</p>
-                  <p><span className="font-semibold">Biển số:</span> {selectedTrip.code}</p>
+                  <p className="text-sm font-semibold text-blue-800">Kéo thả để sắp xếp</p>
+                  <p className="text-xs text-blue-700">Hoặc nhấn nút sắp xếp bên phải</p>
                 </div>
-                <div className="text-right">
-                  <p><span className="font-semibold">Số vé:</span> {currentBookings.length}</p>
-                  <p><span className="font-semibold">Dọc đường:</span> {currentBookings.filter(b => b.pickupMethod === 'Dọc đường').length}</p>
-                  <p><span className="font-semibold">Tại bến:</span> {currentBookings.filter(b => b.pickupMethod === 'Tại bến').length}</p>
-                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSortByAddress}
+                  className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 font-semibold shadow-lg"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                  </svg>
+                  Sắp xếp A-Z
+                </button>
+
+                <button
+                  onClick={() => setShowPrintModal(true)}
+                  className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 font-semibold shadow-lg"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                  In danh sách
+                </button>
               </div>
             </div>
 
-            {currentBookings.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                Chưa có vé nào
+            {sortedBookings.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-lg">Chưa có vé nào</p>
               </div>
             ) : (
-              <table className="w-full border-collapse border">
-                <thead>
-                  <tr className="bg-gray-200">
-                    <th className="border p-2">STT</th>
-                    <th className="border p-2">Ghế</th>
-                    <th className="border p-2">Họ tên</th>
-                    <th className="border p-2">Điện thoại</th>
-                    <th className="border p-2">Điểm lên</th>
-                    <th className="border p-2">Cách đón</th>
-                    <th className="border p-2">Ghi chú</th>
-                    <th className="border p-2">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentBookings.map((passenger, index) => (
-                    <tr key={passenger.id} className="hover:bg-gray-50">
-                      <td className="border p-2 text-center">{index + 1}</td>
-                      <td className="border p-2 text-center font-bold">{passenger.seatNumber || '-'}</td>
-                      <td className="border p-2">{passenger.name}</td>
-                      <td className="border p-2">{passenger.phone}</td>
-                      <td className="border p-2">{passenger.pickupAddress}</td>
-                      <td className="border p-2">
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          passenger.pickupMethod === 'Dọc đường'
-                            ? 'bg-orange-200 text-orange-800'
-                            : 'bg-green-200 text-green-800'
-                        }`}>
-                          {passenger.pickupMethod}
-                        </span>
-                      </td>
-                      <td className="border p-2 text-blue-600">{passenger.note}</td>
-                      <td className="border p-2">
-                        <div className="flex gap-1 justify-center">
-                          <button
-                            onClick={() => handleEdit(passenger)}
-                            className="px-2 py-1 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600"
-                          >
-                            Sửa
-                          </button>
-                          <button
-                            onClick={() => handleDelete(passenger.id)}
-                            className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                          >
-                            Xóa
-                          </button>
+              <div className="space-y-2">
+                {sortedBookings.map((booking, index) => (
+                  <div
+                    key={booking.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, index)}
+                    className={`flex items-center gap-3 p-4 bg-white border-2 rounded-lg cursor-move transition-all ${
+                      draggedIndex === index
+                        ? 'border-blue-400 bg-blue-50 shadow-lg'
+                        : dragOverIndex === index
+                        ? 'border-green-400 bg-green-50'
+                        : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
+                    }`}
+                  >
+                    {/* Icon kéo */}
+                    <div className="text-gray-400 hover:text-blue-500 cursor-grab active:cursor-grabbing flex-shrink-0">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                      </svg>
+                    </div>
+
+                    {/* Thông tin booking */}
+                    <div className="flex-1 grid grid-cols-12 gap-3 items-center">
+                      {/* STT */}
+                      <div className="col-span-1">
+                        <span className="font-bold text-lg text-blue-600">#{index + 1}</span>
+                      </div>
+
+                      {/* Tên + SĐT */}
+                      <div className="col-span-2">
+                        <div className="font-semibold text-gray-800">{booking.name}</div>
+                        <div className="text-sm text-gray-600">{booking.phone}</div>
+                      </div>
+
+                      {/* Điểm trả */}
+                      <div className="col-span-6">
+                        <div className="text-xs text-gray-500 mb-1">📍 Điểm trả</div>
+                        <div className="font-semibold text-green-700 truncate" title={getDeliveryAddress(booking)}>
+                          {getDeliveryAddress(booking)}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+
+                      {/* Ghi chú */}
+                      <div className="col-span-2">
+                        {booking.note && (
+                          <div className="text-xs text-blue-600 truncate" title={booking.note}>
+                            📝 {booking.note}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="col-span-1 flex gap-1 justify-end">
+                        <button
+                          onClick={() => handleEdit(booking)}
+                          className="p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition"
+                          title="Sửa"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(booking.id)}
+                          className="p-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
+                          title="Xóa"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -300,6 +415,14 @@ const SeatMapNew = () => {
           </div>
         )}
       </div>
+
+      {/* Print Modal */}
+      {showPrintModal && (
+        <PrintBookingList
+          onClose={() => setShowPrintModal(false)}
+          sortedBookings={sortedBookings}
+        />
+      )}
     </div>
   );
 };

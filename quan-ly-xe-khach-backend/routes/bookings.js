@@ -51,7 +51,7 @@ router.post('/', async (req, res) => {
   try {
     const {
       timeSlotId, phone, name, gender, nationality, pickupMethod,
-      pickupAddress, dropoffMethod, note, seatNumber, amount, paid,
+      pickupAddress, dropoffMethod, dropoffAddress, note, seatNumber, amount, paid,
       timeSlot, date, route
     } = req.body;
 
@@ -66,6 +66,7 @@ router.post('/', async (req, res) => {
       .input('pickupMethod', sql.NVarChar(50), pickupMethod || '')
       .input('pickupAddress', sql.NVarChar(500), pickupAddress || '')
       .input('dropoffMethod', sql.NVarChar(50), dropoffMethod || '')
+      .input('dropoffAddress', sql.NVarChar(500), dropoffAddress || '')
       .input('note', sql.NVarChar(1000), note || '')
       .input('seatNumber', sql.Int, seatNumber || 0)
       .input('amount', sql.Decimal(18, 2), amount || 0)
@@ -76,13 +77,13 @@ router.post('/', async (req, res) => {
       .query(`
         INSERT INTO Bookings (
           timeSlotId, phone, name, gender, nationality, pickupMethod,
-          pickupAddress, dropoffMethod, note, seatNumber, amount, paid,
+          pickupAddress, dropoffMethod, dropoffAddress, note, seatNumber, amount, paid,
           timeSlot, date, route
         )
         OUTPUT INSERTED.*
         VALUES (
           @timeSlotId, @phone, @name, @gender, @nationality, @pickupMethod,
-          @pickupAddress, @dropoffMethod, @note, @seatNumber, @amount, @paid,
+          @pickupAddress, @dropoffMethod, @dropoffAddress, @note, @seatNumber, @amount, @paid,
           @timeSlot, @date, @route
         )
       `);
@@ -99,7 +100,7 @@ router.put('/:id', async (req, res) => {
   try {
     const {
       timeSlotId, phone, name, gender, nationality, pickupMethod,
-      pickupAddress, dropoffMethod, note, seatNumber, amount, paid,
+      pickupAddress, dropoffMethod, dropoffAddress, note, seatNumber, amount, paid,
       timeSlot, date, route
     } = req.body;
 
@@ -115,6 +116,7 @@ router.put('/:id', async (req, res) => {
       .input('pickupMethod', sql.NVarChar(50), pickupMethod || '')
       .input('pickupAddress', sql.NVarChar(500), pickupAddress || '')
       .input('dropoffMethod', sql.NVarChar(50), dropoffMethod || '')
+      .input('dropoffAddress', sql.NVarChar(500), dropoffAddress || '')
       .input('note', sql.NVarChar(1000), note || '')
       .input('seatNumber', sql.Int, seatNumber || 0)
       .input('amount', sql.Decimal(18, 2), amount || 0)
@@ -133,6 +135,7 @@ router.put('/:id', async (req, res) => {
           pickupMethod = @pickupMethod,
           pickupAddress = @pickupAddress,
           dropoffMethod = @dropoffMethod,
+          dropoffAddress = @dropoffAddress,
           note = @note,
           seatNumber = @seatNumber,
           amount = @amount,
@@ -174,6 +177,7 @@ router.patch('/:id', async (req, res) => {
       pickupMethod: { type: sql.NVarChar(50) },
       pickupAddress: { type: sql.NVarChar(500) },
       dropoffMethod: { type: sql.NVarChar(50) },
+      dropoffAddress: { type: sql.NVarChar(500) },
       note: { type: sql.NVarChar(1000) },
       seatNumber: { type: sql.Int },
       amount: { type: sql.Decimal(18, 2) },

@@ -1,0 +1,3 @@
+admin / admin123 → Full quyền
+quanly1 / admin123 → Quản lý
+nhanvien1 / admin123 → Nhân viên

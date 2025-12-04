@@ -12,11 +12,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
+app.use('/api/auth', require('./routes/auth'));
 app.use('/api/timeslots', require('./routes/timeSlots'));
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/drivers', require('./routes/drivers'));
 app.use('/api/vehicles', require('./routes/vehicles'));
 app.use('/api/stations', require('./routes/stations'));
+app.use('/api/customers', require('./routes/customers'));
+app.use('/api/freight', require('./routes/freight'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

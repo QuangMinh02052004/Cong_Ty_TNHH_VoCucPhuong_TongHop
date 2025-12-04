@@ -1,108 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useBooking } from '../context/BookingContext';
+import axios from 'axios';
+import { stationNames } from '../data/stations';
 
-// Danh sách các địa điểm đón/trả
-const stations = [
-  'An Đông',
-  'Ngã 4 Trần Phú-Lê Hồng Phong',
-  'Ngã 4 Trần Phú-Trần Bình Trọng',
-  'Nhà Sách Nguyễn Thị Minh Khai',
-  'BV Từ Dũ - Nguyễn Thị Minh Khai',
-  'Sở Y Tế - Nguyễn Thị Minh Khai',
-  'CV Tao Đàn - Nguyễn Thị Minh Khai',
-  'Trương Định - Nguyễn Thị Minh Khai',
-  'Cung VH Lao Động - Nguyễn Thị Minh Khai',
-  'N4 Nam Ki - Nguyễn Thị Minh Khai',
-  'Ngã 4 Pastuer - Nguyễn Thị Minh Khai',
-  'Nhà VH Thanh Niên  - Nguyễn Thị Minh Khai',
-  'Ngã 3 PK.Khoan - Nguyễn Thị Minh Khai',
-  'Ngã 4 M.Đ.Chi - Nguyễn Thị Minh Khai',
-  'Sân VD Hoa Lư - Nguyễn Thị Minh Khai',
-  'Ngã 4.Đinh Tiên Hoàng - Nguyễn Thị Minh Khai',
-  'Cầu Đen',
-  'Cầu Trắng',
-  'Metro',
-  'Cantavil',
-  'Ngã 4 MK',
-  'Ngã 4 Bình Thái',
-  'Ngã 4 Thủ Đức',
-  'Khu Công Nghệ Cao',
-  'Suối Tiên',
-  'Ngã 4 621',
-  'Tân Vạn',
-  'Ngã 3 Vũng Tàu',
-  'Bồn Nước',
-  'Tam Hiệp',
-  'Amata',
-  'BV Nhi Đồng Nai',
-  'Cầu Sập',
-  'Bến xe Hố Nai',
-  'Chợ Sặt',
-  'Công Viên 30/4',
-  'Bệnh Viện Thánh Tâm',
-  'Nhà thờ Thánh Tâm',
-  'Cây Xăng Lộ Đức',
-  'Nhà thờ Tiên Chu',
-  'Chợ Thái Bình',
-  'Nhà thờ Ngọc Đồng',
-  'Nhà thờ Ngô Xá',
-  'Nhà thờ Sài Quất',
-  'Ngũ Phúc',
-  'Nhà thờ Thái Hoà',
-  'Yên Thế',
-  'Chợ chiều Thanh Hoá',
-  'Nhà thờ Thanh Hoá',
-  'Ngã 3 Trị An',
-  'Nhà thờ Bùi Chu',
-  'Bắc Sơn',
-  'Phú Sơn',
-  'Nhà thờ Tân Thành',
-  'Nhà thờ Tân Bắc',
-  'Suối Đĩa',
-  'Nhà thờ Tân Bình',
-  'Trà Cổ',
-  'Bar Romance',
-  'Nhà thờ Quảng Biên',
-  'Chợ Quảng Biên',
-  'Sân Golf Trảng Bom',
-  'Bưu điện Trảng Bom',
-  'Bờ hồ Trảng Bom',
-  'Cây xăng Thành Thái',
-  'Trạm cân',
-  'KCN Bầu Xéo',
-  'Song Thạch',
-  'Chợ Lộc Hoà',
-  'Thu phí Bầu Cá',
-  'Nhà thờ Tâm An',
-  'Chợ Bầu Cá',
-  'Cây xăng Minh Trí',
-  'Ba cây Xoài Bầu Cá',
-  'Cổng vàng Hưng Long',
-  'Cây xăng Hưng Thịnh',
-  'Sông Thao',
-  'Chùa Vạn Thọ',
-  'Chợ Hưng Nghĩa',
-  'Trạm Giữa',
-  'Cây xăng Tam Hoàng',
-  'Đại Phát Đạt',
-  'Chợ Hưng Lộc',
-  'Nhà thờ Hưng Lộc',
-  'Cây xăng Hưng Lộc',
-  'Mì Quảng Thủy Tiên',
-  'Ngô Quyền Dầu Giây',
-  'Cây xăng Đặng Văn Bích',
-  'Bưu điện Dầu Giây',
-  'xã Xuân Thạnh Dầu Giây',
-  'Trung tâm Hành chính Dầu Giây',
-  'Bến xe Dầu Giây',
-  'Trạm 97',
-  'Cáp Rang',
-  'Bệnh viện Long Khánh',
-  'Cây Xăng Suối Tre',
-  'Dốc Lê Lợi',
-  'Cây xăng 222',
-  'Bến xe Long Khánh'
-];
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const PassengerFormNew = () => {
   const { addBooking, updateBooking, selectedTrip, bookings, currentDayBookings, setShowPassengerForm, selectedSeatNumber, setSelectedSeatNumber } = useBooking();
@@ -110,6 +11,7 @@ const PassengerFormNew = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [foundPassenger, setFoundPassenger] = useState(null);
+  const [searching, setSearching] = useState(false);
 
   const [formData, setFormData] = useState({
     phone: '',
@@ -133,28 +35,39 @@ const PassengerFormNew = () => {
     autoFill: false,
   });
 
-  // Hàm tìm kiếm hành khách theo số điện thoại
-  const searchPassengerByPhone = (phone) => {
+  // Hàm tìm kiếm hành khách theo số điện thoại (gọi API)
+  const searchPassengerByPhone = async (phone) => {
     if (phone.length >= 10) {
-      const found = bookings.find(b => b.phone === phone);
-      if (found) {
-        setFoundPassenger(found);
-        // Tự động điền thông tin (trừ số điện thoại)
-        setFormData(prev => ({
-          ...prev,
-          name: found.name,
-          gender: found.gender || '',
-          nationality: found.nationality || 'Việt Nam',
-          pickupAddress: found.pickupAddress || '',
-          pickupMethod: found.pickupMethod || 'Dọc đường',
-          dropoffMethod: found.dropoffMethod || 'Tại bến',
-          dropoffAddress: found.dropoffAddress || '',
-          note: found.note || '',
-        }));
-        return true;
-      } else {
+      setSearching(true);
+      try {
+        const response = await axios.get(`${API_URL}/customers/search/${phone}`);
+
+        if (response.data.found) {
+          const customer = response.data.customer;
+          setFoundPassenger(customer);
+
+          // Tự động điền thông tin
+          setFormData(prev => ({
+            ...prev,
+            name: customer.fullName || '',
+            pickupMethod: customer.pickupType || 'Dọc đường',
+            pickupAddress: customer.pickupLocation || '',
+            dropoffMethod: customer.dropoffType || 'Tại bến',
+            dropoffAddress: customer.dropoffLocation || '',
+            note: customer.notes || '',
+          }));
+
+          return true;
+        } else {
+          setFoundPassenger(null);
+          return false;
+        }
+      } catch (error) {
+        console.error('Lỗi tìm khách hàng:', error);
         setFoundPassenger(null);
         return false;
+      } finally {
+        setSearching(false);
       }
     }
     return false;
@@ -164,10 +77,24 @@ const PassengerFormNew = () => {
     const { name, value, type, checked } = e.target;
 
     // Cập nhật giá trị
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      };
+
+      // Xóa địa chỉ đón khi chọn "Tại bến"
+      if (name === 'pickupMethod' && value === 'Tại bến') {
+        newData.pickupAddress = '';
+      }
+
+      // Xóa địa chỉ trả khi chọn "Tại bến"
+      if (name === 'dropoffMethod' && value === 'Tại bến') {
+        newData.dropoffAddress = '';
+      }
+
+      return newData;
+    });
 
     // Nếu là số điện thoại, tìm kiếm tự động
     if (name === 'phone') {
@@ -175,7 +102,7 @@ const PassengerFormNew = () => {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.phone || !formData.name) {
       alert('Vui lòng nhập số điện thoại và họ tên!');
       return;
@@ -202,6 +129,23 @@ const PassengerFormNew = () => {
 
       // Thêm booking mới
       addBooking(formData);
+
+      // Lưu thông tin khách hàng vào database
+      try {
+        await axios.post(`${API_URL}/customers`, {
+          phone: formData.phone,
+          fullName: formData.name,
+          pickupType: formData.pickupMethod,
+          pickupLocation: formData.pickupAddress,
+          dropoffType: formData.dropoffMethod,
+          dropoffLocation: formData.dropoffAddress,
+          notes: formData.note
+        });
+        console.log('✅ Đã lưu thông tin khách hàng');
+      } catch (error) {
+        console.error('Lỗi lưu khách hàng:', error);
+      }
+
       alert('Đã thêm hành khách thành công!');
     }
 
@@ -353,11 +297,14 @@ const PassengerFormNew = () => {
             value={formData.pickupAddress}
             onChange={handleInputChange}
             list="pickup-stations-list"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            disabled={formData.pickupMethod === 'Tại bến'}
+            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+              formData.pickupMethod === 'Tại bến' ? 'bg-gray-100 cursor-not-allowed' : ''
+            }`}
             placeholder="Chọn hoặc nhập địa chỉ đón"
           />
           <datalist id="pickup-stations-list">
-            {stations.map((station, index) => (
+            {stationNames.map((station, index) => (
               <option key={index} value={station} />
             ))}
           </datalist>
@@ -393,11 +340,14 @@ const PassengerFormNew = () => {
             value={formData.dropoffAddress}
             onChange={handleInputChange}
             list="dropoff-stations-list"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            disabled={formData.dropoffMethod === 'Tại bến'}
+            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+              formData.dropoffMethod === 'Tại bến' ? 'bg-gray-100 cursor-not-allowed' : ''
+            }`}
             placeholder="Chọn hoặc nhập địa chỉ trả"
           />
           <datalist id="dropoff-stations-list">
-            {stations.map((station, index) => (
+            {stationNames.map((station, index) => (
               <option key={index} value={station} />
             ))}
           </datalist>
@@ -419,6 +369,77 @@ const PassengerFormNew = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             placeholder="Tự động"
           />
+        </div>
+
+        {/* Thông tin thanh toán */}
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md space-y-2">
+          <h3 className="text-sm font-bold text-blue-800 mb-2">💰 Thanh toán</h3>
+
+          {/* Giá vé */}
+          <div className="flex justify-between items-center">
+            <label className="text-sm font-medium text-gray-700">
+              Giá vé:
+            </label>
+            <input
+              type="number"
+              name="amount"
+              value={formData.amount}
+              onChange={handleInputChange}
+              className="w-32 px-3 py-1 border border-gray-300 rounded-md text-right font-semibold"
+            />
+          </div>
+
+          {/* Đã thanh toán */}
+          <div className="flex justify-between items-center">
+            <label className="text-sm font-medium text-gray-700">
+              Đã thanh toán: <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              name="paid"
+              value={formData.paid}
+              onChange={handleInputChange}
+              className="w-32 px-3 py-1 border border-green-400 rounded-md text-right font-bold bg-green-50 focus:ring-2 focus:ring-green-500"
+              placeholder="0"
+            />
+          </div>
+
+          {/* Còn nợ */}
+          <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+            <label className="text-sm font-bold text-gray-700">
+              Còn nợ:
+            </label>
+            <span className={`text-lg font-bold ${
+              (formData.amount - formData.paid) > 0 ? 'text-red-600' : 'text-green-600'
+            }`}>
+              {new Intl.NumberFormat('vi-VN').format(formData.amount - formData.paid)} đ
+            </span>
+          </div>
+
+          {/* Nút thanh toán nhanh */}
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, paid: prev.amount }))}
+              className="flex-1 px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition"
+            >
+              ✓ Thanh toán đủ
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, paid: Math.floor(prev.amount / 2) }))}
+              className="flex-1 px-2 py-1 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 transition"
+            >
+              50%
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, paid: 0 }))}
+              className="flex-1 px-2 py-1 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 transition"
+            >
+              Chưa trả
+            </button>
+          </div>
         </div>
 
         {/* Ghi chú */}
