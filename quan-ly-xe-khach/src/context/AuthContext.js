@@ -15,7 +15,15 @@ export const useAuth = () => {
 const API_URL = 'https://vocucphuongmanage.vercel.app/api/tong-hop';
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  // ✅ Khôi phục user từ localStorage khi load trang (tránh redirect khi refresh)
+  const [user, setUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
@@ -29,15 +37,25 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
-  // Load current user from token
+  // Load current user from token (refresh user data từ server)
   const loadCurrentUser = async () => {
     try {
       const response = await axios.get(`${API_URL}/auth/me`);
-      setUser(response.data);
+      const userData = response.data;
+      setUser(userData);
+      // ✅ Cache user vào localStorage
+      localStorage.setItem('user', JSON.stringify(userData));
     } catch (error) {
       console.error('Lỗi load user:', error);
-      // Token không hợp lệ, xóa đi
-      logout();
+      // ✅ Nếu có user cached trong localStorage, vẫn giữ đăng nhập (tránh mất session khi mạng chập chờn)
+      const savedUser = localStorage.getItem('user');
+      if (savedUser && localStorage.getItem('token')) {
+        console.log('Sử dụng cached user data');
+        setUser(JSON.parse(savedUser));
+      } else {
+        // Không có cache hoặc không có token, logout
+        logout();
+      }
     } finally {
       setLoading(false);
     }
@@ -53,8 +71,9 @@ export const AuthProvider = ({ children }) => {
 
       const { token: newToken, user: userData } = response.data;
 
-      // Lưu token vào localStorage và state
+      // Lưu token VÀ user vào localStorage
       localStorage.setItem('token', newToken);
+      localStorage.setItem('user', JSON.stringify(userData));
       setToken(newToken);
       setUser(userData);
 
@@ -74,6 +93,7 @@ export const AuthProvider = ({ children }) => {
   // Logout
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');  // ✅ Xóa cả user cache
     setToken(null);
     setUser(null);
     delete axios.defaults.headers.common['Authorization'];
