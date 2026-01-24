@@ -11,7 +11,8 @@ export const useAuth = () => {
   return context;
 };
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// API URL - sử dụng full URL cho cross-domain requests
+const API_URL = 'https://vocucphuongmanage.vercel.app/api/tong-hop';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

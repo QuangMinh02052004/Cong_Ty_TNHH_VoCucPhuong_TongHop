@@ -2,8 +2,14 @@ import React, { useState } from 'react';
 import { useBooking } from '../context/BookingContext';
 
 const TimeSlotsNew = () => {
-  const { selectedTrip, setSelectedTrip, getBookingsByTimeSlot, setIsSlotSelected, currentDayTimeSlots, updateTimeSlot, addNewTimeSlot, changeTimeSlotTime, deleteTimeSlot, drivers, vehicles } = useBooking();
+  const {
+    selectedTrip, setSelectedTrip, getBookingsByTimeSlot, setIsSlotSelected,
+    currentDayTimeSlots, updateTimeSlot, addNewTimeSlot, changeTimeSlotTime,
+    deleteTimeSlot, drivers, vehicles, loading, createTimeSlotsForDate,
+    selectedDate, selectedRoute
+  } = useBooking();
   const [editingSlot, setEditingSlot] = useState(null);
+  const [isCreatingSlots, setIsCreatingSlots] = useState(false);
   const [editData, setEditData] = useState({});
   const [showAddSlotModal, setShowAddSlotModal] = useState(false);
   const [newSlotData, setNewSlotData] = useState({
@@ -99,14 +105,41 @@ const TimeSlotsNew = () => {
     setEditData({});
   };
 
+  // Handler tạo timeslots cho ngày hiện tại
+  const handleCreateTimeslots = async () => {
+    setIsCreatingSlots(true);
+    try {
+      await createTimeSlotsForDate(selectedDate, selectedRoute);
+    } catch (error) {
+      console.error('Lỗi tạo timeslots:', error);
+    } finally {
+      setIsCreatingSlots(false);
+    }
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-8">
+        <div className="flex flex-col items-center justify-center">
+          <svg className="animate-spin h-10 w-10 text-sky-500 mb-4" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white shadow-sm p-2">
+    <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-3">
       {/* Header thông báo */}
-      <div className="mb-2 p-2 bg-blue-50 border-l-4 border-blue-500">
-        <p className="text-xs font-semibold text-blue-800">
+      <div className="mb-3 p-2.5 bg-sky-50 border-l-4 border-sky-500 rounded-r">
+        <p className="text-xs font-semibold text-sky-800">
           {selectedTrip ? (
             <>
-              Chuyến đang chọn: <span className="text-blue-600 text-sm">{selectedTrip.time}</span> - {selectedTrip.date}
+              Chuyến đang chọn: <span className="text-sky-600 text-sm">{selectedTrip.time}</span> - {selectedTrip.date}
               {selectedTrip.code && <span className="ml-2 text-xs">({selectedTrip.code})</span>}
             </>
           ) : (
@@ -115,69 +148,125 @@ const TimeSlotsNew = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-10 gap-1">
+      {/* Empty state - Không có timeslots */}
+      {currentDayTimeSlots.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 px-4">
+          <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h3 className="text-lg font-semibold text-gray-600 mb-2">Chưa có khung giờ</h3>
+          <p className="text-sm text-gray-500 mb-4 text-center">
+            Ngày {selectedDate} - Tuyến {selectedRoute}
+          </p>
+          <button
+            onClick={handleCreateTimeslots}
+            disabled={isCreatingSlots}
+            className="px-6 py-2.5 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isCreatingSlots ? (
+              <>
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Đang tạo...
+              </>
+            ) : (
+              <>
+                <span>+</span>
+                Tạo khung giờ mặc định
+              </>
+            )}
+          </button>
+        </div>
+      ) : (
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
         {currentDayTimeSlots.map((slot, index) => {
           const bookingsCount = getBookingsByTimeSlot(slot.id).length;
           const isSelected = selectedTrip?.id === slot.id;
           const hasBookings = bookingsCount > 0;
           const isEditing = editingSlot === slot.id;
+          const departed = isDeparted(slot.time);
 
           return (
             <div
               key={slot.id}
               onClick={() => handleSlotClick(slot)}
               className={`
-                relative border rounded p-2 cursor-pointer transition-all hover:shadow-md
-                min-h-[130px] flex flex-col
+                relative border rounded-lg cursor-pointer transition-all hover:shadow-md overflow-hidden
                 ${isSelected
-                  ? 'bg-blue-100 border-blue-600 ring-2 ring-blue-500'
+                  ? 'border-sky-500 ring-2 ring-sky-400'
                   : hasBookings
-                    ? 'bg-green-50 border-green-400'
-                    : 'bg-white border-gray-300 hover:border-blue-400'
+                    ? 'border-emerald-400'
+                    : 'border-gray-300 hover:border-sky-400'
                 }
               `}
             >
-              {/* Edit/Delete Button - Top Right Corner */}
-              <button
-                onClick={(e) => handleEditClick(e, slot)}
-                className="absolute top-1 right-1 bg-gray-600 hover:bg-gray-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold transition z-10"
-                title="Chỉnh sửa/Xóa"
-              >
-                ✎
-              </button>
+              {/* Layout ngang với vạch xanh bên trái */}
+              <div className="flex">
+                {/* Vạch màu bên trái - hiển thị tiến độ booking */}
+                <div
+                  className={`w-2.5 ${hasBookings ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                  style={{
+                    background: hasBookings
+                      ? `linear-gradient(to top, #10B981 ${(bookingsCount / 28) * 100}%, #E5E7EB ${(bookingsCount / 28) * 100}%)`
+                      : '#D1D5DB'
+                  }}
+                />
 
-              {/* Time - Large Display */}
-              <div className={`text-2xl font-bold text-center ${isSelected ? 'text-blue-700' : 'text-gray-800'}`}>
-                {slot.time}
+                {/* Nội dung chính - hiển thị ngang */}
+                <div className="flex-1 px-3 py-2">
+                  {/* Dòng 1: Giờ | Số vé/Tổng | Loại xe */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-lg font-bold ${isSelected ? 'text-sky-600' : 'text-gray-800'}`}>
+                      {slot.time}
+                    </span>
+                    <span className={`text-sm font-semibold ${bookingsCount === 28 ? 'text-emerald-600' : hasBookings ? 'text-amber-600' : 'text-gray-500'}`}>
+                      {bookingsCount}/{28}
+                    </span>
+                    {slot.type && (
+                      <span className="text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
+                        {slot.type}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Dòng 2: Biển số xe + Tài xế (ngang hàng) */}
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {slot.code && (
+                      <span className="text-sm font-bold text-gray-800">
+                        {slot.code}
+                      </span>
+                    )}
+                    {slot.code && slot.driver && (
+                      <span className="text-gray-400">|</span>
+                    )}
+                    {slot.driver && (
+                      <span className="text-sm font-semibold text-sky-700 truncate">
+                        {slot.driver}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Badge đã xuất bến */}
+                  {departed && (
+                    <div className="mt-1">
+                      <span className="text-[10px] text-white bg-gray-500 px-1.5 py-0.5 rounded font-medium">
+                        Đã xuất bến
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Nút edit ở góc phải */}
+                <button
+                  onClick={(e) => handleEditClick(e, slot)}
+                  className="absolute top-1 right-1 bg-gray-500 hover:bg-gray-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold transition z-10 opacity-70 hover:opacity-100"
+                  title="Chỉnh sửa"
+                >
+                  ✎
+                </button>
               </div>
-
-              {/* Seat Count & Vehicle Type */}
-              <div className="text-xs text-gray-600 text-center mt-1.5">
-                <span className="font-semibold">{bookingsCount}/28</span>
-                {slot.type && <span className="ml-1">• {slot.type}</span>}
-              </div>
-
-              {/* Vehicle License Plate */}
-              {slot.code && (
-                <div className="text-base font-extrabold text-gray-900 text-center mt-2 bg-yellow-100 border-2 border-yellow-500 rounded-md px-3 py-1.5 mx-1 shadow-sm">
-                  {slot.code}
-                </div>
-              )}
-
-              {/* Driver Info */}
-              {slot.driver && (
-                <div className="text-sm font-semibold text-gray-800 text-center mt-2 px-1">
-                  {slot.driver}
-                  {hasBookings && bookingsCount === 28 && <span className="text-green-600 ml-1">✓</span>}
-                </div>
-              )}
-
-              {/* Departed Indicator */}
-              {isDeparted(slot.time) && (
-                <div className="text-[9px] text-white bg-gray-500 text-center mt-1 py-0.5 rounded mx-1 font-semibold">
-                  Đã xuất bến
-                </div>
-              )}
             </div>
           );
         })}
@@ -185,20 +274,21 @@ const TimeSlotsNew = () => {
         {/* Add New Slot Button */}
         <div
           onClick={() => setShowAddSlotModal(true)}
-          className="border border-dashed border-gray-300 rounded p-2 min-h-[130px] flex items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
+          className="border-2 border-dashed border-gray-300 rounded-lg px-3 py-2 flex items-center justify-center cursor-pointer hover:border-sky-400 hover:bg-sky-50 transition-all min-h-[70px]"
         >
-          <div className="text-center text-gray-400">
-            <div className="text-4xl font-light">+</div>
-            <div className="text-xs mt-1">Thêm giờ</div>
+          <div className="flex items-center gap-2 text-gray-400">
+            <span className="text-2xl font-light">+</span>
+            <span className="text-sm">Thêm giờ</span>
           </div>
         </div>
       </div>
+      )}
 
       {/* Edit Modal */}
       {editingSlot && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={handleCancelEdit}>
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold mb-4 text-gray-800">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4 text-sky-600">
               Chỉnh sửa thông tin chuyến {editData.time}
             </h3>
 
@@ -212,7 +302,7 @@ const TimeSlotsNew = () => {
                   type="time"
                   value={editData.time || ''}
                   onChange={(e) => setEditData({ ...editData, time: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
                 />
               </div>
 
@@ -234,7 +324,7 @@ const TimeSlotsNew = () => {
                       setEditData(prev => ({ ...prev, type: vehicle.type }));
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
                   placeholder="Nhập biển số xe"
                 />
                 <datalist id="edit-vehicles-list">
@@ -255,7 +345,7 @@ const TimeSlotsNew = () => {
                   type="text"
                   value={editData.type || ''}
                   onChange={(e) => setEditData({ ...editData, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
                   placeholder="Nhập loại xe"
                 />
               </div>
@@ -278,7 +368,7 @@ const TimeSlotsNew = () => {
                       setEditData(prev => ({ ...prev, phone: driver.phone }));
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
                   placeholder="Nhập tên tài xế"
                 />
                 <datalist id="edit-drivers-list">
@@ -299,7 +389,7 @@ const TimeSlotsNew = () => {
                   type="text"
                   value={editData.phone || ''}
                   onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
                   placeholder="Nhập số điện thoại"
                 />
               </div>
@@ -309,13 +399,13 @@ const TimeSlotsNew = () => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={handleSaveEdit}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition font-semibold"
+                className="flex-1 bg-sky-500 text-white py-2.5 px-4 rounded-lg hover:bg-sky-600 transition font-semibold shadow-sm"
               >
                 Lưu
               </button>
               <button
                 onClick={handleCancelEdit}
-                className="flex-1 bg-gray-400 text-white py-2 px-4 rounded-md hover:bg-gray-500 transition font-semibold"
+                className="flex-1 bg-gray-400 text-white py-2.5 px-4 rounded-lg hover:bg-gray-500 transition font-semibold"
               >
                 Hủy
               </button>
@@ -324,7 +414,7 @@ const TimeSlotsNew = () => {
                   handleDeleteSlot(editData.id, editData.time);
                   handleCancelEdit();
                 }}
-                className="bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 transition font-semibold"
+                className="bg-red-500 text-white py-2.5 px-4 rounded-lg hover:bg-red-600 transition font-semibold"
               >
                 Xóa
               </button>
@@ -336,8 +426,8 @@ const TimeSlotsNew = () => {
       {/* Add New Slot Modal */}
       {showAddSlotModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAddSlotModal(false)}>
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold mb-4 text-gray-800">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4 text-sky-600">
               Thêm khung giờ mới
             </h3>
 
@@ -351,7 +441,7 @@ const TimeSlotsNew = () => {
                   type="time"
                   value={newSlotData.time}
                   onChange={(e) => setNewSlotData({ ...newSlotData, time: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
                 />
               </div>
 
@@ -373,7 +463,7 @@ const TimeSlotsNew = () => {
                       setNewSlotData(prev => ({ ...prev, type: vehicle.type }));
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
                   placeholder="Nhập biển số xe"
                 />
                 <datalist id="add-vehicles-list">
@@ -394,7 +484,7 @@ const TimeSlotsNew = () => {
                   type="text"
                   value={newSlotData.type}
                   onChange={(e) => setNewSlotData({ ...newSlotData, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
                   placeholder="Nhập loại xe"
                 />
               </div>
@@ -417,7 +507,7 @@ const TimeSlotsNew = () => {
                       setNewSlotData(prev => ({ ...prev, phone: driver.phone }));
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
                   placeholder="Nhập tên tài xế"
                 />
                 <datalist id="add-drivers-list">
@@ -438,7 +528,7 @@ const TimeSlotsNew = () => {
                   type="text"
                   value={newSlotData.phone}
                   onChange={(e) => setNewSlotData({ ...newSlotData, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
                   placeholder="Nhập số điện thoại"
                 />
               </div>
@@ -448,13 +538,13 @@ const TimeSlotsNew = () => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={handleAddNewSlot}
-                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition font-semibold"
+                className="flex-1 bg-emerald-500 text-white py-2.5 px-4 rounded-lg hover:bg-emerald-600 transition font-semibold shadow-sm"
               >
                 Thêm
               </button>
               <button
                 onClick={() => setShowAddSlotModal(false)}
-                className="flex-1 bg-gray-400 text-white py-2 px-4 rounded-md hover:bg-gray-500 transition font-semibold"
+                className="flex-1 bg-gray-400 text-white py-2.5 px-4 rounded-lg hover:bg-gray-500 transition font-semibold"
               >
                 Hủy
               </button>
