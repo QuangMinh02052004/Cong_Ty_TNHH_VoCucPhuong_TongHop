@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { timeSlotAPI, bookingAPI, driverAPI, vehicleAPI } from '../services/api';
+import { timeSlotAPI, bookingAPI, driverAPI, vehicleAPI, seatLockAPI } from '../services/api';
+import { useAuth } from './AuthContext';
 
 const BookingContext = createContext();
 
@@ -21,6 +22,9 @@ const formatDate = (date) => {
 };
 
 export const BookingProvider = ({ children }) => {
+  // Lấy thông tin user đăng nhập từ AuthContext
+  const { user } = useAuth();
+
   // State cho ngày đang chọn (mặc định là hôm nay)
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
 
@@ -42,6 +46,9 @@ export const BookingProvider = ({ children }) => {
   // State cho số ghế đang chọn
   const [selectedSeatNumber, setSelectedSeatNumber] = useState(null);
 
+  // State cho booking đang được edit (để form có thể load ngay)
+  const [editingBooking, setEditingBooking] = useState(null);
+
   // State cho các khung giờ
   const [timeSlots, setTimeSlots] = useState([]);
 
@@ -51,6 +58,13 @@ export const BookingProvider = ({ children }) => {
 
   // State loading
   const [loading, setLoading] = useState(true);
+
+  // State cho seat locks (khóa ghế tạm thời)
+  const [seatLocks, setSeatLocks] = useState([]);
+
+  // Tên người dùng hiện tại (dùng để identify ai đang khóa ghế)
+  // Sử dụng fullName hoặc username từ user đăng nhập
+  const currentUserName = user?.fullName || user?.username || 'Unknown';
 
   // Lọc timeslots theo ngày VÀ tuyến đường đang chọn
   const currentDayTimeSlots = timeSlots.filter(slot => {
@@ -107,6 +121,69 @@ export const BookingProvider = ({ children }) => {
     loadData();
   }, []);
 
+  // Auto-refresh bookings VÀ timeslots - 30 giây để giảm tải cho Vercel
+  useEffect(() => {
+    const refreshData = async () => {
+      try {
+        // Refresh cả bookings VÀ timeslots để đảm bảo sync
+        const [bookingsData, slotsData] = await Promise.all([
+          bookingAPI.getAll(),
+          timeSlotAPI.getAll()
+        ]);
+        setBookings(bookingsData);
+        setTimeSlots(slotsData);
+        console.log(`🔄 Auto-refresh: ${bookingsData.length} bookings, ${slotsData.length} timeslots`);
+      } catch (error) {
+        console.error('❌ Lỗi refresh data:', error);
+      }
+    };
+
+    // Refresh mỗi 30 giây (Vercel có cold start nên cần giảm tần suất)
+    const intervalId = setInterval(refreshData, 30000);
+
+    // Cleanup khi component unmount
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Auto-refresh seat locks - tăng lên 15 giây
+  useEffect(() => {
+    const refreshSeatLocks = async () => {
+      try {
+        if (selectedDate && selectedRoute) {
+          const locksData = await seatLockAPI.getByDateRoute(selectedDate, selectedRoute);
+          setSeatLocks(locksData);
+        }
+      } catch (error) {
+        console.error('❌ Lỗi refresh seat locks:', error);
+      }
+    };
+
+    // Load ngay lần đầu
+    refreshSeatLocks();
+
+    // Refresh mỗi 15 giây
+    const intervalId = setInterval(refreshSeatLocks, 15000);
+
+    // Cleanup khi component unmount
+    return () => clearInterval(intervalId);
+  }, [selectedDate, selectedRoute]);
+
+  // Release tất cả locks của user khi đóng tab/browser
+  useEffect(() => {
+    if (!currentUserName || currentUserName === 'Unknown') return;
+
+    const handleBeforeUnload = () => {
+      // Gọi API để release tất cả locks của user này
+      navigator.sendBeacon(
+        'https://vocucphuongmanage.vercel.app/api/tong-hop/seat-locks/release-all',
+        JSON.stringify({ lockedBy: currentUserName })
+      );
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [currentUserName, user]);
+
   // Tạo timeslots cho ngày mới và tuyến mới (template khác nhau cho từng tuyến)
   const createTimeSlotsForDate = async (date, route) => {
     try {
@@ -124,13 +201,13 @@ export const BookingProvider = ({ children }) => {
         ];
         console.log(`📋 Sử dụng template Long Khánh - Sài Gòn (03:30 - 18:00)`);
       } else {
-        // Tuyến Sài Gòn- Long Khánh: 05:30 - 20:00 (30 khung giờ)
+        // Tuyến Sài Gòn - Long Khánh: 05:30 - 20:00 (30 khung giờ)
         timeTemplate = [
           '05:30', '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00',
           '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00',
           '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00'
         ];
-        console.log(`📋 Sử dụng template Sài Gòn- Long Khánh (05:30 - 20:00)`);
+        console.log(`📋 Sử dụng template Sài Gòn - Long Khánh (05:30 - 20:00)`);
       }
 
       const newSlots = [];
@@ -178,20 +255,30 @@ export const BookingProvider = ({ children }) => {
         );
 
         if (slotsForDateAndRoute.length > 0) {
-          // Đã có timeslots, chọn khung giờ đầu tiên
-          setSelectedTrip(slotsForDateAndRoute[0]);
+          // Đã có timeslots, chọn khung giờ đầu tiên (sorted by time)
+          const sortedSlots = sortTimeSlots(slotsForDateAndRoute);
+          setSelectedTrip(sortedSlots[0]);
           setIsSlotSelected(true);
           console.log(`✅ Đã chuyển sang ngày ${selectedDate}, tuyến ${selectedRoute}, có ${slotsForDateAndRoute.length} timeslots`);
         } else {
-          // Chưa có timeslots, tạo mới
-          console.log(`⚠️ Ngày ${selectedDate}, tuyến ${selectedRoute} chưa có timeslots, đang tạo...`);
-          await createTimeSlotsForDate(selectedDate, selectedRoute);
+          // Chưa có timeslots cho ngày/tuyến này -> TỰ ĐỘNG TẠO
+          console.log(`📅 Ngày ${selectedDate}, tuyến ${selectedRoute} chưa có timeslots. Đang tạo tự động...`);
+          try {
+            const newSlots = await createTimeSlotsForDate(selectedDate, selectedRoute);
+            if (newSlots && newSlots.length > 0) {
+              const sortedNewSlots = sortTimeSlots(newSlots);
+              setSelectedTrip(sortedNewSlots[0]);
+              setIsSlotSelected(true);
+            }
+          } catch (error) {
+            console.error('❌ Lỗi tạo timeslots tự động:', error);
+          }
         }
       }
     };
 
     handleDateOrRouteChange();
-  }, [selectedDate, selectedRoute, loading]); // ✅ Theo dõi cả ngày và tuyến
+  }, [selectedDate, selectedRoute, loading]); // Bỏ timeSlots khỏi dependencies để tránh vòng lặp
 
   // Thêm booking mới
   const addBooking = async (bookingData) => {
@@ -352,6 +439,97 @@ export const BookingProvider = ({ children }) => {
     }
   };
 
+  // ============ SEAT LOCK FUNCTIONS ============
+
+  // Khóa ghế khi user bắt đầu điền form
+  const lockSeat = async (timeSlotId, seatNumber) => {
+    try {
+      const result = await seatLockAPI.create({
+        timeSlotId,
+        seatNumber,
+        lockedBy: currentUserName,
+        date: selectedDate,
+        route: selectedRoute
+      });
+
+      if (result.success) {
+        console.log(`🔒 Đã khóa ghế ${seatNumber}:`, result.message);
+        // Refresh locks ngay
+        const locksData = await seatLockAPI.getByDateRoute(selectedDate, selectedRoute);
+        setSeatLocks(locksData);
+        return { success: true, lock: result.lock };
+      }
+      return result;
+    } catch (error) {
+      // Nếu lỗi 409 = ghế đã bị khóa bởi người khác
+      if (error.response && error.response.status === 409) {
+        const data = error.response.data;
+        console.warn(`⚠️ Ghế ${seatNumber} đã bị khóa bởi ${data.lockedBy}`);
+        return {
+          success: false,
+          locked: true,
+          lockedBy: data.lockedBy,
+          message: data.message
+        };
+      }
+      console.error('❌ Lỗi khóa ghế:', error);
+      throw error;
+    }
+  };
+
+  // Mở khóa ghế khi user hủy hoặc hoàn tất booking
+  const releaseSeat = async (timeSlotId, seatNumber) => {
+    try {
+      const requestData = {
+        timeSlotId,
+        seatNumber,
+        date: selectedDate,
+        route: selectedRoute,
+        lockedBy: currentUserName
+      };
+      console.log(`🔓 Đang mở khóa ghế ${seatNumber}...`, requestData);
+
+      const result = await seatLockAPI.deleteBySeat(requestData);
+      console.log(`✅ Kết quả mở khóa ghế ${seatNumber}:`, result);
+
+      // Refresh locks ngay
+      const locksData = await seatLockAPI.getByDateRoute(selectedDate, selectedRoute);
+      setSeatLocks(locksData);
+    } catch (error) {
+      console.error('❌ Lỗi mở khóa ghế:', error);
+      console.error('❌ Error response:', error.response?.data);
+    }
+  };
+
+  // Kiểm tra ghế có bị khóa không (bởi người khác)
+  const isSeatLocked = (timeSlotId, seatNumber) => {
+    const lock = seatLocks.find(
+      l => l.timeSlotId === timeSlotId && l.seatNumber === seatNumber
+    );
+    // Ghế bị khóa nếu có lock VÀ không phải do chính mình khóa
+    return lock && lock.lockedBy !== currentUserName;
+  };
+
+  // Kiểm tra ghế có đang được chính mình khóa không
+  const isSeatLockedByMe = (timeSlotId, seatNumber) => {
+    const lock = seatLocks.find(
+      l => l.timeSlotId === timeSlotId && l.seatNumber === seatNumber
+    );
+    return lock && lock.lockedBy === currentUserName;
+  };
+
+  // Lấy thông tin lock của ghế
+  const getSeatLockInfo = (timeSlotId, seatNumber) => {
+    return seatLocks.find(
+      l => l.timeSlotId === timeSlotId && l.seatNumber === seatNumber
+    );
+  };
+
+  // Lọc seat locks theo timeSlotId
+  const getSeatLocksByTimeSlot = (timeSlotId) => {
+    return seatLocks.filter(lock => lock.timeSlotId === timeSlotId);
+  };
+
   const value = {
     selectedDate,
     setSelectedDate,
@@ -367,6 +545,8 @@ export const BookingProvider = ({ children }) => {
     setShowPassengerForm,
     selectedSeatNumber,
     setSelectedSeatNumber,
+    editingBooking,
+    setEditingBooking,
     timeSlots,
     currentDayTimeSlots,
     drivers,
@@ -382,6 +562,15 @@ export const BookingProvider = ({ children }) => {
     deleteBooking,
     getBookingsByTimeSlot,
     formatDate,
+    // Seat lock functions
+    seatLocks,
+    currentUserName,
+    lockSeat,
+    releaseSeat,
+    isSeatLocked,
+    isSeatLockedByMe,
+    getSeatLockInfo,
+    getSeatLocksByTimeSlot,
   };
 
   return (
