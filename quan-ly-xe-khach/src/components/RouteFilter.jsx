@@ -23,8 +23,8 @@ const RouteFilter = () => {
         const response = await axios.get(`${API_URL}/routes`);
         const activeRoutes = (response.data || []).filter(r => r.isActive);
         setRouteOptions(activeRoutes);
-        // Nếu selectedRoute chưa có trong danh sách, set route đầu tiên
-        if (activeRoutes.length > 0 && !activeRoutes.find(r => r.name === selectedRoute)) {
+        // Set route đầu tiên nếu chưa có hoặc route hiện tại không có trong danh sách
+        if (activeRoutes.length > 0 && (!selectedRoute || !activeRoutes.find(r => r.name === selectedRoute))) {
           setSelectedRoute(activeRoutes[0].name);
         }
       } catch (error) {

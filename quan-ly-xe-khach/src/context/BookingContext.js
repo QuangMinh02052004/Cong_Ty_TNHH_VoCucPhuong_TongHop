@@ -28,8 +28,8 @@ export const BookingProvider = ({ children }) => {
   // State cho ngày đang chọn (mặc định là hôm nay)
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
 
-  // State cho tuyến đường đang chọn (mặc định là Sài Gòn - Long Khánh)
-  const [selectedRoute, setSelectedRoute] = useState('Sài Gòn- Long Khánh');
+  // State cho tuyến đường đang chọn (sẽ được RouteFilter set từ API)
+  const [selectedRoute, setSelectedRoute] = useState('');
 
   // State cho danh sách đặt vé
   const [bookings, setBookings] = useState([]);
@@ -195,8 +195,7 @@ export const BookingProvider = ({ children }) => {
       // Lấy thông tin tuyến từ API để dùng giờ chạy đúng
       let startTime = '05:30', endTime = '20:00', interval = 30;
       try {
-        const API_URL = '/api/tong-hop';
-        const res = await fetch(`${API_URL}/routes`);
+        const res = await fetch('https://vocucphuongmanage.vercel.app/api/tong-hop/routes');
         if (res.ok) {
           const allRoutes = await res.json();
           const matched = allRoutes.find(r => r.name === route);
@@ -249,8 +248,8 @@ export const BookingProvider = ({ children }) => {
         newSlots.push(createdSlot);
       }
 
-      const updated = [...timeSlots, ...newSlots];
-      setTimeSlots(sortTimeSlots(updated));
+      // Dùng functional update để tránh stale closure
+      setTimeSlots(prev => sortTimeSlots([...prev, ...newSlots]));
       console.log(`✅ Đã tạo ${newSlots.length} timeslots cho ngày ${date}, tuyến ${route}`);
       return newSlots;
     } catch (error) {
@@ -262,6 +261,9 @@ export const BookingProvider = ({ children }) => {
   // Reset tất cả state khi chuyển ngày hoặc tuyến (để tránh hiển thị dữ liệu cũ)
   useEffect(() => {
     const handleDateOrRouteChange = async () => {
+      // Bỏ qua nếu route chưa được set (đợi RouteFilter load từ API)
+      if (!selectedRoute) return;
+
       console.log(`🔄 Đang chuyển sang ngày ${selectedDate}, tuyến ${selectedRoute}...`);
 
       // Reset các state liên quan đến việc đặt vé
