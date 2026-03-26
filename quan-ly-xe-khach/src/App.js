@@ -12,6 +12,7 @@ import DieuHanhPage from './pages/DieuHanhPage';
 import CSKHPage from './pages/CSKHPage';
 import ProfilePage from './pages/ProfilePage';
 import UserManagementPage from './pages/UserManagementPage';
+import RouteManagementPage from './pages/RouteManagementPage';
 
 // Components
 import MainLayout from './components/MainLayout';
@@ -120,6 +121,11 @@ function App() {
                     <Route path="/admin/users" element={
                       <ProtectedRoute requiresAdmin>
                         <UserManagementPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/admin/routes" element={
+                      <ProtectedRoute requiresAdmin>
+                        <RouteManagementPage />
                       </ProtectedRoute>
                     } />
                     <Route path="/hang-hoa" element={

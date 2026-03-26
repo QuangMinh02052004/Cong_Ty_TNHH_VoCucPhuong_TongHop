@@ -62,6 +62,9 @@ export const BookingProvider = ({ children }) => {
   // State cho seat locks (khóa ghế tạm thời)
   const [seatLocks, setSeatLocks] = useState([]);
 
+  // State cho chuyển booking (hàng đợi - mảng nhiều booking)
+  const [transferQueue, setTransferQueue] = useState([]);
+
   // Tên người dùng hiện tại (dùng để identify ai đang khóa ghế)
   // Sử dụng fullName hoặc username từ user đăng nhập
   const currentUserName = user?.fullName || user?.username || 'Unknown';
@@ -189,26 +192,46 @@ export const BookingProvider = ({ children }) => {
     try {
       console.log(`🔄 Đang tạo timeslots cho ngày ${date}, tuyến ${route}...`);
 
-      // Template khung giờ khác nhau cho từng tuyến
-      let timeTemplate;
-
-      if (route === 'Long Khánh - Sài Gòn') {
-        // Tuyến Long Khánh - Sài Gòn: 03:30 - 18:00 (30 khung giờ)
-        timeTemplate = [
-          '03:30', '04:00', '04:30', '05:00', '05:30', '06:00', '06:30', '07:00', '07:30', '08:00',
-          '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00',
-          '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00'
-        ];
-        console.log(`📋 Sử dụng template Long Khánh - Sài Gòn (03:30 - 18:00)`);
-      } else {
-        // Tuyến Sài Gòn - Long Khánh: 05:30 - 20:00 (30 khung giờ)
-        timeTemplate = [
-          '05:30', '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00',
-          '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00',
-          '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00'
-        ];
-        console.log(`📋 Sử dụng template Sài Gòn - Long Khánh (05:30 - 20:00)`);
+      // Lấy thông tin tuyến từ API để dùng giờ chạy đúng
+      let startTime = '05:30', endTime = '20:00', interval = 30;
+      try {
+        const API_URL = '/api/tong-hop';
+        const res = await fetch(`${API_URL}/routes`);
+        if (res.ok) {
+          const allRoutes = await res.json();
+          const matched = allRoutes.find(r => r.name === route);
+          if (matched) {
+            startTime = matched.operatingStart || startTime;
+            endTime = matched.operatingEnd || endTime;
+            interval = matched.intervalMinutes || interval;
+            console.log(`📋 Route API: ${route} → ${startTime}-${endTime}, ${interval}p/chuyến`);
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️ Không lấy được route info từ API, dùng mặc định');
       }
+
+      // Fallback: detect hướng tuyến nếu không match API
+      const routeLower = route.toLowerCase();
+      const isFromLK = routeLower.startsWith('long khánh') || routeLower.startsWith('xuân lộc');
+      if (startTime === '05:30' && endTime === '20:00' && isFromLK) {
+        startTime = '03:30';
+        endTime = '18:00';
+      }
+
+      // Generate time template từ startTime → endTime, mỗi interval phút
+      const timeTemplate = [];
+      const [startH, startM] = startTime.split(':').map(Number);
+      const [endH, endM] = endTime.split(':').map(Number);
+      let currentMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+      while (currentMinutes <= endMinutes) {
+        const h = String(Math.floor(currentMinutes / 60)).padStart(2, '0');
+        const m = String(currentMinutes % 60).padStart(2, '0');
+        timeTemplate.push(`${h}:${m}`);
+        currentMinutes += interval;
+      }
+      console.log(`📋 Generated ${timeTemplate.length} timeslots: ${startTime}-${endTime} (${interval}p) cho tuyến: ${route}`);
 
       const newSlots = [];
       for (const time of timeTemplate) {
@@ -571,6 +594,9 @@ export const BookingProvider = ({ children }) => {
     isSeatLockedByMe,
     getSeatLockInfo,
     getSeatLocksByTimeSlot,
+    // Transfer booking functions
+    transferQueue,
+    setTransferQueue,
   };
 
   return (

@@ -80,15 +80,14 @@ const MainLayout = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Top Navigation Bar */}
-      <nav className="bg-white shadow-md border-b border-blue-100">
-        <div className="max-w-7xl mx-auto px-4">
+      <nav className="bg-white shadow-sm border-b border-gray-200">
+        <div className="w-full px-4">
           <div className="flex items-center justify-between h-16">
-            {/* Left: Tabs */}
+            {/* Left: Tabs + Nhập Hàng link */}
             <div className="flex items-center space-x-1">
               {tabs.map((tab) => {
-                // Kiểm tra quyền truy cập
                 if (tab.requiresManager && !user?.role?.match(/admin|manager/)) {
                   return null;
                 }
@@ -101,8 +100,8 @@ const MainLayout = ({ children }) => {
                     className={`
                       flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200
                       ${isActive
-                        ? 'bg-blue-500 text-white shadow-md'
-                        : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                        ? 'bg-sky-500 text-white shadow-md'
+                        : 'text-gray-600 hover:bg-sky-50 hover:text-sky-600'
                       }
                     `}
                   >
@@ -111,18 +110,32 @@ const MainLayout = ({ children }) => {
                   </button>
                 );
               })}
+
+              {/* Divider */}
+              <div className="w-px h-8 bg-gray-300 mx-1"></div>
+
+              {/* Nhập Hàng link */}
+              <a
+                href="/nhap-hang/index.html"
+                className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 text-orange-600 hover:bg-orange-50 border border-orange-300"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <span>Nhập Hàng</span>
+              </a>
             </div>
 
             {/* Right: Revenue & User Info */}
             <div className="flex items-center space-x-4">
               {/* Revenue Display */}
-              <div className="hidden md:flex items-center bg-green-50 px-4 py-2 rounded-lg border border-green-200">
-                <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="hidden md:flex items-center bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200">
+                <svg className="w-5 h-5 text-emerald-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div className="text-sm">
                   <div className="text-gray-600 text-xs">Tổng Đài An Đông 01</div>
-                  <div className="font-bold text-green-700">{formatCurrency(totalRevenue)}</div>
+                  <div className="font-bold text-emerald-700">{formatCurrency(totalRevenue)}</div>
                 </div>
               </div>
 
@@ -130,9 +143,9 @@ const MainLayout = ({ children }) => {
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center space-x-2 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg transition border border-blue-200"
+                  className="flex items-center space-x-2 bg-sky-50 hover:bg-sky-100 px-4 py-2 rounded-lg transition border border-sky-200"
                 >
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                  <div className="w-8 h-8 bg-sky-500 rounded-full flex items-center justify-center text-white font-bold">
                     {user?.fullName?.charAt(0) || 'U'}
                   </div>
                   <div className="text-left hidden md:block">
@@ -156,7 +169,7 @@ const MainLayout = ({ children }) => {
                         setShowUserMenu(false);
                         navigate('/profile');
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition"
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-sky-50 transition"
                     >
                       <div className="flex items-center space-x-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,20 +179,36 @@ const MainLayout = ({ children }) => {
                       </div>
                     </button>
                     {user?.role === 'admin' && (
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          navigate('/admin/users');
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                          </svg>
-                          <span>Quản lý users</span>
-                        </div>
-                      </button>
+                      <>
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            navigate('/admin/users');
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-sky-50 transition"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                            <span>Quản lý users</span>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            navigate('/admin/routes');
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-sky-50 transition"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                            </svg>
+                            <span>Quản lý tuyến</span>
+                          </div>
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={handleLogout}
@@ -201,7 +230,7 @@ const MainLayout = ({ children }) => {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="w-full px-4 py-4">
         {children}
       </main>
 
