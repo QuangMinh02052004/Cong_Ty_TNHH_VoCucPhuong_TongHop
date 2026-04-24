@@ -3,6 +3,10 @@
 @tailwind components;
 @tailwind utilities; */
 
+html {
+  font-size: 16px;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -11,9 +15,154 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #f5f5f5;
+  font-size: 15px;
 }
+
+/* Tăng kích thước font chữ toàn trang */
+#root {
+  font-size: 15px;
+}
+#root .text-xs { font-size: 13px !important; }
+#root .text-sm { font-size: 14px !important; }
+#root .text-base { font-size: 16px !important; }
+#root .text-lg { font-size: 18px !important; }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* ===== MOBILE APP RESPONSIVE ===== */
+@media (max-width: 768px) {
+  /* Cải thiện table trên mobile */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  th, td {
+    white-space: nowrap;
+    padding: 8px !important;
+    font-size: 13px !important;
+  }
+
+  /* Form elements */
+  input, select, textarea {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+    padding: 12px !important;
+  }
+
+  /* Button sizes */
+  button {
+    min-height: 44px;
+    padding: 10px 16px !important;
+  }
+
+  /* Card layout improvement */
+  .bg-white {
+    margin: 8px;
+    border-radius: 8px;
+  }
+
+  /* Stack columns on mobile */
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Sidebar handling */
+  .sidebar {
+    position: fixed;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* Modal improvements */
+  .fixed.inset-0 .bg-white {
+    width: 95% !important;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* Text size adjustments */
+  h1 { font-size: 1.5rem !important; }
+  h2 { font-size: 1.25rem !important; }
+  h3 { font-size: 1.1rem !important; }
+
+  /* Spacing */
+  .p-6 { padding: 1rem !important; }
+  .px-6 { padding-left: 1rem !important; padding-right: 1rem !important; }
+  .py-6 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+}
+
+/* Extra small devices */
+@media (max-width: 400px) {
+  th, td {
+    padding: 6px !important;
+    font-size: 12px !important;
+  }
+
+  button {
+    font-size: 13px !important;
+    padding: 8px 12px !important;
+  }
+}
+
+/* ===== LANDSCAPE MODE - Hiển thị như desktop ===== */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Reset mobile styles */
+  table {
+    display: table;
+    overflow-x: visible;
+  }
+
+  th, td {
+    white-space: normal;
+    padding: 10px 12px !important;
+    font-size: 14px !important;
+  }
+
+  /* Form elements - normal size */
+  input, select, textarea {
+    font-size: 14px !important;
+    padding: 10px !important;
+  }
+
+  /* Button sizes */
+  button {
+    min-height: auto;
+    padding: 8px 16px !important;
+    font-size: 14px !important;
+  }
+
+  /* Grid - horizontal layout */
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  }
+
+  /* Card layout */
+  .bg-white {
+    margin: 4px;
+  }
+
+  /* Modal - wider */
+  .fixed.inset-0 .bg-white {
+    width: 80% !important;
+    max-width: 900px;
+  }
+
+  /* Text size - normal */
+  h1 { font-size: 1.75rem !important; }
+  h2 { font-size: 1.5rem !important; }
+  h3 { font-size: 1.25rem !important; }
+
+  /* Spacing - compact */
+  .p-6 { padding: 1rem !important; }
+  .px-6 { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
+  .py-6 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
 }

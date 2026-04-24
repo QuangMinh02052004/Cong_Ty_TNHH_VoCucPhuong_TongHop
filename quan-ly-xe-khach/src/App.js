@@ -9,10 +9,10 @@ import { BookingProvider } from './context/BookingContext';
 import LoginPage from './pages/LoginPage';
 import HangHoaPage from './pages/HangHoaPage';
 import DieuHanhPage from './pages/DieuHanhPage';
-import CSKHPage from './pages/CSKHPage';
 import ProfilePage from './pages/ProfilePage';
 import UserManagementPage from './pages/UserManagementPage';
 import RouteManagementPage from './pages/RouteManagementPage';
+import VehicleDriverPage from './pages/VehicleDriverPage';
 
 // Components
 import MainLayout from './components/MainLayout';
@@ -128,6 +128,11 @@ function App() {
                         <RouteManagementPage />
                       </ProtectedRoute>
                     } />
+                    <Route path="/admin/vehicles-drivers" element={
+                      <ProtectedRoute requiresAdmin>
+                        <VehicleDriverPage />
+                      </ProtectedRoute>
+                    } />
                     <Route path="/hang-hoa" element={
                       <ProtectedRoute requiresManager>
                         <HangHoaPage />
@@ -138,7 +143,6 @@ function App() {
                         <DieuHanhPage />
                       </ProtectedRoute>
                     } />
-                    <Route path="/cskh" element={<CSKHPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </MainLayout>

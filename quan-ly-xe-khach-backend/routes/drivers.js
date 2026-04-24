@@ -1,13 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getConnection, sql } = require('../config/database');
+const { query, queryOne } = require('../config/database');
 
 // GET - Lấy tất cả tài xế
 router.get('/', async (req, res) => {
   try {
-    const pool = await getConnection();
-    const result = await pool.request().query('SELECT * FROM Drivers ORDER BY name');
-    res.json(result.recordset);
+    const result = await query('SELECT * FROM "TH_Drivers" ORDER BY name');
+    res.json(result);
   } catch (err) {
     console.error('Lỗi lấy danh sách Drivers:', err);
     res.status(500).json({ error: err.message });
@@ -17,15 +16,15 @@ router.get('/', async (req, res) => {
 // GET - Lấy một tài xế theo ID
 router.get('/:id', async (req, res) => {
   try {
-    const pool = await getConnection();
-    const result = await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .query('SELECT * FROM Drivers WHERE id = @id');
+    const result = await queryOne(
+      'SELECT * FROM "TH_Drivers" WHERE id = $1',
+      [req.params.id]
+    );
 
-    if (result.recordset.length === 0) {
+    if (!result) {
       return res.status(404).json({ error: 'Không tìm thấy tài xế' });
     }
-    res.json(result.recordset[0]);
+    res.json(result);
   } catch (err) {
     console.error('Lỗi lấy Driver:', err);
     res.status(500).json({ error: err.message });
@@ -41,18 +40,13 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Tên và số điện thoại là bắt buộc' });
     }
 
-    const pool = await getConnection();
+    const result = await query(`
+      INSERT INTO "TH_Drivers" (name, phone)
+      VALUES ($1, $2)
+      RETURNING *
+    `, [name, phone]);
 
-    const result = await pool.request()
-      .input('name', sql.NVarChar(100), name)
-      .input('phone', sql.VarChar(20), phone)
-      .query(`
-        INSERT INTO Drivers (name, phone)
-        OUTPUT INSERTED.*
-        VALUES (@name, @phone)
-      `);
-
-    res.status(201).json(result.recordset[0]);
+    res.status(201).json(result[0]);
   } catch (err) {
     console.error('Lỗi tạo Driver:', err);
     res.status(500).json({ error: err.message });
@@ -68,23 +62,17 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Tên và số điện thoại là bắt buộc' });
     }
 
-    const pool = await getConnection();
+    const result = await query(`
+      UPDATE "TH_Drivers"
+      SET name = $1, phone = $2, "updatedAt" = NOW()
+      WHERE id = $3
+      RETURNING *
+    `, [name, phone, req.params.id]);
 
-    const result = await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .input('name', sql.NVarChar(100), name)
-      .input('phone', sql.VarChar(20), phone)
-      .query(`
-        UPDATE Drivers
-        SET name = @name, phone = @phone, updatedAt = GETDATE()
-        OUTPUT INSERTED.*
-        WHERE id = @id
-      `);
-
-    if (result.recordset.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ error: 'Không tìm thấy tài xế' });
     }
-    res.json(result.recordset[0]);
+    res.json(result[0]);
   } catch (err) {
     console.error('Lỗi cập nhật Driver:', err);
     res.status(500).json({ error: err.message });
@@ -94,12 +82,12 @@ router.put('/:id', async (req, res) => {
 // DELETE - Xóa tài xế
 router.delete('/:id', async (req, res) => {
   try {
-    const pool = await getConnection();
-    const result = await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .query('DELETE FROM Drivers WHERE id = @id');
+    const result = await query(
+      'DELETE FROM "TH_Drivers" WHERE id = $1 RETURNING id',
+      [req.params.id]
+    );
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ error: 'Không tìm thấy tài xế' });
     }
     res.json({ message: 'Đã xóa tài xế thành công' });

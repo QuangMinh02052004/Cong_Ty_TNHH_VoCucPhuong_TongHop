@@ -1,13 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getConnection, sql } = require('../config/database');
+const { query, queryOne } = require('../config/database');
 
 // GET - Lấy tất cả địa điểm
 router.get('/', async (req, res) => {
   try {
-    const pool = await getConnection();
-    const result = await pool.request().query('SELECT * FROM Stations ORDER BY StationID');
-    res.json(result.recordset);
+    const result = await query('SELECT * FROM "TH_Stations" ORDER BY "StationID"');
+    res.json(result);
   } catch (err) {
     console.error('Lỗi lấy danh sách Stations:', err);
     res.status(500).json({ error: err.message });
@@ -17,15 +16,15 @@ router.get('/', async (req, res) => {
 // GET - Lấy một địa điểm theo ID
 router.get('/:id', async (req, res) => {
   try {
-    const pool = await getConnection();
-    const result = await pool.request()
-      .input('id', sql.Decimal(5, 1), req.params.id)
-      .query('SELECT * FROM Stations WHERE StationID = @id');
+    const result = await queryOne(
+      'SELECT * FROM "TH_Stations" WHERE "StationID" = $1',
+      [req.params.id]
+    );
 
-    if (result.recordset.length === 0) {
+    if (!result) {
       return res.status(404).json({ error: 'Không tìm thấy địa điểm' });
     }
-    res.json(result.recordset[0]);
+    res.json(result);
   } catch (err) {
     console.error('Lỗi lấy Station:', err);
     res.status(500).json({ error: err.message });
@@ -41,18 +40,13 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Mã địa điểm và tên địa điểm là bắt buộc' });
     }
 
-    const pool = await getConnection();
+    const result = await query(`
+      INSERT INTO "TH_Stations" ("StationID", "StationName")
+      VALUES ($1, $2)
+      RETURNING *
+    `, [StationID, StationName]);
 
-    const result = await pool.request()
-      .input('StationID', sql.Decimal(5, 1), StationID)
-      .input('StationName', sql.NVarChar(255), StationName)
-      .query(`
-        INSERT INTO Stations (StationID, StationName)
-        OUTPUT INSERTED.*
-        VALUES (@StationID, @StationName)
-      `);
-
-    res.status(201).json(result.recordset[0]);
+    res.status(201).json(result[0]);
   } catch (err) {
     console.error('Lỗi tạo Station:', err);
     res.status(500).json({ error: err.message });
@@ -68,22 +62,17 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Tên địa điểm là bắt buộc' });
     }
 
-    const pool = await getConnection();
+    const result = await query(`
+      UPDATE "TH_Stations"
+      SET "StationName" = $1, "UpdatedAt" = NOW()
+      WHERE "StationID" = $2
+      RETURNING *
+    `, [StationName, req.params.id]);
 
-    const result = await pool.request()
-      .input('id', sql.Decimal(5, 1), req.params.id)
-      .input('StationName', sql.NVarChar(255), StationName)
-      .query(`
-        UPDATE Stations
-        SET StationName = @StationName, UpdatedAt = GETDATE()
-        OUTPUT INSERTED.*
-        WHERE StationID = @id
-      `);
-
-    if (result.recordset.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ error: 'Không tìm thấy địa điểm' });
     }
-    res.json(result.recordset[0]);
+    res.json(result[0]);
   } catch (err) {
     console.error('Lỗi cập nhật Station:', err);
     res.status(500).json({ error: err.message });
@@ -93,12 +82,12 @@ router.put('/:id', async (req, res) => {
 // DELETE - Xóa địa điểm
 router.delete('/:id', async (req, res) => {
   try {
-    const pool = await getConnection();
-    const result = await pool.request()
-      .input('id', sql.Decimal(5, 1), req.params.id)
-      .query('DELETE FROM Stations WHERE StationID = @id');
+    const result = await query(
+      'DELETE FROM "TH_Stations" WHERE "StationID" = $1 RETURNING "StationID"',
+      [req.params.id]
+    );
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ error: 'Không tìm thấy địa điểm' });
     }
     res.json({ message: 'Đã xóa địa điểm thành công' });

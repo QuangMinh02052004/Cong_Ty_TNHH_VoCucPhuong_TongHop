@@ -1,286 +1,309 @@
-const sql = require('mssql');
+/**
+ * Database Configuration - PostgreSQL (Neon)
+ * Migrated from SQL Server to share database with vocucphuong.vercel.app
+ */
+
+const { Pool } = require('pg');
 require('dotenv').config();
 
-const config = {
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  server: process.env.DB_SERVER,
-  database: process.env.DB_NAME,
-  port: parseInt(process.env.DB_PORT),
-  options: {
-    encrypt: false, // Sử dụng false cho local development
-    trustServerCertificate: true,
-    enableArithAbort: true
-  }
-};
+// Connection string - dùng chung với vocucphuong.vercel.app và Nhập Hàng
+const connectionString = process.env.DATABASE_URL ||
+    'postgresql://neondb_owner:npg_1XwtpYJIFC5i@ep-holy-recipe-a1pyfvtp-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require';
 
-// Tạo pool connection để tái sử dụng
 let pool = null;
 
-const getConnection = async () => {
-  try {
-    if (pool) {
-      return pool;
+/**
+ * Get database connection pool
+ */
+const getPool = () => {
+    if (!pool) {
+        pool = new Pool({
+            connectionString,
+            ssl: { rejectUnauthorized: false },
+            max: 10,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 10000,
+        });
+        console.log('✅ Đã kết nối PostgreSQL (Neon) - Tổng Hợp');
     }
-    pool = await sql.connect(config);
-    console.log('✅ Kết nối SQL Server thành công!');
     return pool;
-  } catch (err) {
-    console.error('❌ Lỗi kết nối SQL Server:', err);
-    throw err;
-  }
 };
 
-// Khởi tạo database tables nếu chưa có
+/**
+ * Execute SQL query with positional parameters ($1, $2, ...)
+ */
+const query = async (sqlQuery, values = []) => {
+    try {
+        const poolConnection = getPool();
+        const result = await poolConnection.query(sqlQuery, values);
+        return result.rows;
+    } catch (error) {
+        console.error('Query error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Execute SQL query and return single record
+ */
+const queryOne = async (sqlQuery, values = []) => {
+    const results = await query(sqlQuery, values);
+    return results.length > 0 ? results[0] : null;
+};
+
+/**
+ * Initialize database tables
+ */
 const initDatabase = async () => {
-  try {
-    const pool = await getConnection();
+    try {
+        // Tạo bảng TH_TimeSlots (Khung giờ xe chạy - với prefix TH_ để phân biệt)
+        await query(`
+            CREATE TABLE IF NOT EXISTS "TH_TimeSlots" (
+                id SERIAL PRIMARY KEY,
+                time VARCHAR(10) NOT NULL,
+                date VARCHAR(20),
+                type VARCHAR(50),
+                code VARCHAR(20),
+                driver VARCHAR(100),
+                phone VARCHAR(20),
+                route VARCHAR(100),
+                "createdAt" TIMESTAMP DEFAULT NOW(),
+                "updatedAt" TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        console.log('✅ TH_TimeSlots table ready');
 
-    // Tạo bảng TimeSlots (Khung giờ xe chạy)
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='TimeSlots' AND xtype='U')
-      CREATE TABLE TimeSlots (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        time VARCHAR(10) NOT NULL,
-        date VARCHAR(20),
-        type NVARCHAR(50),
-        code VARCHAR(20),
-        driver NVARCHAR(100),
-        phone VARCHAR(20),
-        createdAt DATETIME DEFAULT GETDATE(),
-        updatedAt DATETIME DEFAULT GETDATE()
-      )
-    `);
+        // Tạo bảng TH_Bookings (Đặt vé)
+        await query(`
+            CREATE TABLE IF NOT EXISTS "TH_Bookings" (
+                id SERIAL PRIMARY KEY,
+                "timeSlotId" INTEGER REFERENCES "TH_TimeSlots"(id) ON DELETE CASCADE,
+                phone VARCHAR(20),
+                name VARCHAR(200),
+                gender VARCHAR(10),
+                nationality VARCHAR(100),
+                "pickupMethod" VARCHAR(50),
+                "pickupAddress" VARCHAR(500),
+                "dropoffMethod" VARCHAR(50),
+                "dropoffAddress" VARCHAR(500),
+                note TEXT,
+                "seatNumber" INTEGER,
+                amount DECIMAL(18,2),
+                paid DECIMAL(18,2) DEFAULT 0,
+                "timeSlot" VARCHAR(10),
+                date VARCHAR(20),
+                route VARCHAR(100),
+                "createdAt" TIMESTAMP DEFAULT NOW(),
+                "updatedAt" TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        console.log('✅ TH_Bookings table ready');
 
-    // Tạo bảng Bookings (Đặt vé)
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Bookings' AND xtype='U')
-      CREATE TABLE Bookings (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        timeSlotId INT FOREIGN KEY REFERENCES TimeSlots(id) ON DELETE CASCADE,
-        phone VARCHAR(20),
-        name NVARCHAR(200),
-        gender VARCHAR(10),
-        nationality NVARCHAR(100),
-        pickupMethod NVARCHAR(50),
-        pickupAddress NVARCHAR(500),
-        dropoffMethod NVARCHAR(50),
-        dropoffAddress NVARCHAR(500),
-        note NVARCHAR(1000),
-        seatNumber INT,
-        amount DECIMAL(18,2),
-        paid DECIMAL(18,2) DEFAULT 0,
-        timeSlot VARCHAR(10),
-        date VARCHAR(20),
-        createdAt DATETIME DEFAULT GETDATE(),
-        updatedAt DATETIME DEFAULT GETDATE()
-      )
-    `);
+        // Tạo bảng TH_Drivers (Tài xế)
+        await query(`
+            CREATE TABLE IF NOT EXISTS "TH_Drivers" (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                phone VARCHAR(20) NOT NULL,
+                "createdAt" TIMESTAMP DEFAULT NOW(),
+                "updatedAt" TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        console.log('✅ TH_Drivers table ready');
 
-    // Tạo bảng Drivers (Danh sách tài xế)
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Drivers' AND xtype='U')
-      CREATE TABLE Drivers (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        name NVARCHAR(100) NOT NULL,
-        phone VARCHAR(20) NOT NULL,
-        createdAt DATETIME DEFAULT GETDATE(),
-        updatedAt DATETIME DEFAULT GETDATE()
-      )
-    `);
+        // Tạo bảng TH_Vehicles (Xe)
+        await query(`
+            CREATE TABLE IF NOT EXISTS "TH_Vehicles" (
+                id SERIAL PRIMARY KEY,
+                code VARCHAR(20) NOT NULL UNIQUE,
+                type VARCHAR(50) NOT NULL,
+                "createdAt" TIMESTAMP DEFAULT NOW(),
+                "updatedAt" TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        console.log('✅ TH_Vehicles table ready');
 
-    // Tạo bảng Vehicles (Danh sách xe)
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Vehicles' AND xtype='U')
-      CREATE TABLE Vehicles (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        code VARCHAR(20) NOT NULL UNIQUE,
-        type NVARCHAR(50) NOT NULL,
-        createdAt DATETIME DEFAULT GETDATE(),
-        updatedAt DATETIME DEFAULT GETDATE()
-      )
-    `);
+        // Tạo bảng TH_Stations (Trạm dừng)
+        await query(`
+            CREATE TABLE IF NOT EXISTS "TH_Stations" (
+                id SERIAL PRIMARY KEY,
+                station_name VARCHAR(200) NOT NULL,
+                address VARCHAR(500),
+                station_type VARCHAR(50),
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        console.log('✅ TH_Stations table ready');
 
-    // Tạo bảng Stations (Trạm dừng)
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Stations' AND xtype='U')
-      CREATE TABLE Stations (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        station_name NVARCHAR(200) NOT NULL,
-        address NVARCHAR(500),
-        station_type NVARCHAR(50),
-        created_at DATETIME DEFAULT GETDATE(),
-        updated_at DATETIME DEFAULT GETDATE()
-      )
-    `);
+        // Tạo bảng TH_Users (Người dùng hệ thống Tổng Hợp)
+        await query(`
+            CREATE TABLE IF NOT EXISTS "TH_Users" (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) NOT NULL UNIQUE,
+                password VARCHAR(255) NOT NULL,
+                "fullName" VARCHAR(100) NOT NULL,
+                email VARCHAR(100),
+                phone VARCHAR(20),
+                role VARCHAR(20) DEFAULT 'user',
+                "isActive" BOOLEAN DEFAULT true,
+                "createdAt" TIMESTAMP DEFAULT NOW(),
+                "updatedAt" TIMESTAMP DEFAULT NOW(),
+                "lastLogin" TIMESTAMP
+            )
+        `);
+        console.log('✅ TH_Users table ready');
 
-    // Tạo bảng Users (Người dùng hệ thống)
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Users' AND xtype='U')
-      CREATE TABLE Users (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        username NVARCHAR(50) NOT NULL UNIQUE,
-        password NVARCHAR(255) NOT NULL,
-        fullName NVARCHAR(100) NOT NULL,
-        email NVARCHAR(100),
-        phone NVARCHAR(20),
-        role NVARCHAR(20) DEFAULT 'user',
-        isActive BIT DEFAULT 1,
-        createdAt DATETIME DEFAULT GETDATE(),
-        updatedAt DATETIME DEFAULT GETDATE(),
-        lastLogin DATETIME
-      )
-    `);
+        // Tạo bảng TH_Customers (Khách hàng)
+        await query(`
+            CREATE TABLE IF NOT EXISTS "TH_Customers" (
+                id SERIAL PRIMARY KEY,
+                phone VARCHAR(20) NOT NULL UNIQUE,
+                customer_name VARCHAR(100),
+                address VARCHAR(255),
+                email VARCHAR(100),
+                notes VARCHAR(500),
+                "pickupType" VARCHAR(50),
+                "pickupLocation" VARCHAR(500),
+                "dropoffType" VARCHAR(50),
+                "dropoffLocation" VARCHAR(500),
+                total_bookings INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        console.log('✅ TH_Customers table ready');
 
-    // Tạo bảng Customers (Khách hàng)
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Customers' AND xtype='U')
-      CREATE TABLE Customers (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        phone NVARCHAR(20) NOT NULL UNIQUE,
-        customer_name NVARCHAR(100),
-        address NVARCHAR(255),
-        email NVARCHAR(100),
-        notes NVARCHAR(500),
-        pickupType NVARCHAR(50),
-        pickupLocation NVARCHAR(500),
-        dropoffType NVARCHAR(50),
-        dropoffLocation NVARCHAR(500),
-        total_bookings INT DEFAULT 0,
-        created_at DATETIME DEFAULT GETDATE(),
-        updated_at DATETIME DEFAULT GETDATE()
-      )
-    `);
+        // Tạo bảng TH_Freight (Hàng hóa)
+        await query(`
+            CREATE TABLE IF NOT EXISTS "TH_Freight" (
+                id SERIAL PRIMARY KEY,
+                time_slot_id INTEGER REFERENCES "TH_TimeSlots"(id) ON DELETE CASCADE,
+                sender_customer_id INTEGER,
+                receiver_customer_id INTEGER,
+                receiver_name VARCHAR(100),
+                receiver_phone VARCHAR(20),
+                receiver_address VARCHAR(255),
+                pickup_station_id INTEGER,
+                delivery_station_id INTEGER,
+                description VARCHAR(500) NOT NULL,
+                weight DECIMAL(10,2),
+                size_length DECIMAL(10,2),
+                size_width DECIMAL(10,2),
+                size_height DECIMAL(10,2),
+                quantity INTEGER DEFAULT 1,
+                freight_charge DECIMAL(10,2) DEFAULT 0,
+                cod_amount DECIMAL(10,2) DEFAULT 0,
+                status VARCHAR(20) DEFAULT 'pending',
+                pickup_time TIMESTAMP,
+                delivery_time TIMESTAMP,
+                special_instructions VARCHAR(500),
+                created_by INTEGER,
+                updated_by INTEGER,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        console.log('✅ TH_Freight table ready');
 
-    // Tạo bảng Freight (Hàng hóa)
-    await pool.request().query(`
-      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Freight' AND xtype='U')
-      CREATE TABLE Freight (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        time_slot_id INT FOREIGN KEY REFERENCES TimeSlots(id) ON DELETE CASCADE,
-        sender_customer_id INT,
-        receiver_customer_id INT,
-        receiver_name NVARCHAR(100),
-        receiver_phone NVARCHAR(20),
-        receiver_address NVARCHAR(255),
-        pickup_station_id INT,
-        delivery_station_id INT,
-        description NVARCHAR(500) NOT NULL,
-        weight DECIMAL(10,2),
-        size_length DECIMAL(10,2),
-        size_width DECIMAL(10,2),
-        size_height DECIMAL(10,2),
-        quantity INT DEFAULT 1,
-        freight_charge DECIMAL(10,2) DEFAULT 0,
-        cod_amount DECIMAL(10,2) DEFAULT 0,
-        status NVARCHAR(20) DEFAULT 'pending',
-        pickup_time DATETIME,
-        delivery_time DATETIME,
-        special_instructions NVARCHAR(500),
-        created_by INT,
-        updated_by INT,
-        created_at DATETIME DEFAULT GETDATE(),
-        updated_at DATETIME DEFAULT GETDATE()
-      )
-    `);
+        // Tạo bảng TH_SeatLocks (Khóa ghế tạm thời)
+        await query(`
+            CREATE TABLE IF NOT EXISTS "TH_SeatLocks" (
+                id SERIAL PRIMARY KEY,
+                "timeSlotId" INTEGER NOT NULL,
+                "seatNumber" INTEGER NOT NULL,
+                "lockedBy" VARCHAR(100) NOT NULL,
+                "lockedByUserId" INTEGER,
+                "lockedAt" TIMESTAMP DEFAULT NOW(),
+                "expiresAt" TIMESTAMP NOT NULL,
+                date VARCHAR(20) NOT NULL,
+                route VARCHAR(100) NOT NULL,
+                CONSTRAINT "UQ_SeatLock" UNIQUE ("timeSlotId", "seatNumber", date, route)
+            )
+        `);
+        console.log('✅ TH_SeatLocks table ready');
 
-    // Migration: Thêm cột dropoffAddress nếu chưa có
-    await pool.request().query(`
-      IF NOT EXISTS (
-        SELECT * FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_NAME = 'Bookings' AND COLUMN_NAME = 'dropoffAddress'
-      )
-      BEGIN
-        ALTER TABLE Bookings ADD dropoffAddress NVARCHAR(500)
-        PRINT 'Added dropoffAddress column to Bookings table'
-      END
-    `);
+        // Xóa các lock hết hạn
+        await query('DELETE FROM "TH_SeatLocks" WHERE "expiresAt" < NOW()');
 
-    console.log('✅ Database tables đã được khởi tạo!');
+        console.log('✅ Database tables đã được khởi tạo!');
 
-    // Insert dữ liệu mẫu nếu bảng trống
-    await insertSampleData(pool);
+        // Insert dữ liệu mẫu nếu bảng trống
+        await insertSampleData();
 
-  } catch (err) {
-    console.error('❌ Lỗi khởi tạo database:', err);
-    throw err;
-  }
+    } catch (err) {
+        console.error('❌ Lỗi khởi tạo database:', err);
+        throw err;
+    }
 };
 
-// Thêm dữ liệu mẫu
-const insertSampleData = async (pool) => {
-  try {
-    // Kiểm tra xem đã có dữ liệu chưa
-    const driverCount = await pool.request().query('SELECT COUNT(*) as count FROM Drivers');
-    const vehicleCount = await pool.request().query('SELECT COUNT(*) as count FROM Vehicles');
+/**
+ * Insert sample data if tables are empty
+ */
+const insertSampleData = async () => {
+    try {
+        // Kiểm tra Drivers
+        const driverCount = await queryOne('SELECT COUNT(*) as count FROM "TH_Drivers"');
+        if (parseInt(driverCount.count) === 0) {
+            await query(`
+                INSERT INTO "TH_Drivers" (name, phone) VALUES
+                ('TX Thanh Bắc', '0918026316'),
+                ('TX. Phong M X', '0912345678'),
+                ('TX. Minh', '0987654321'),
+                ('TX. Hùng', '0909123456')
+            `);
+            console.log('✅ Đã thêm dữ liệu mẫu cho TH_Drivers');
+        }
 
-    if (driverCount.recordset[0].count === 0) {
-      // Thêm tài xế mẫu
-      await pool.request().query(`
-        INSERT INTO Drivers (name, phone) VALUES
-        (N'TX Thanh Bắc', '0918026316'),
-        (N'TX. Phong M X', '0912345678'),
-        (N'TX. Minh', '0987654321'),
-        (N'TX. Hùng', '0909123456')
-      `);
-      console.log('✅ Đã thêm dữ liệu mẫu cho Drivers');
+        // Kiểm tra Vehicles
+        const vehicleCount = await queryOne('SELECT COUNT(*) as count FROM "TH_Vehicles"');
+        if (parseInt(vehicleCount.count) === 0) {
+            await query(`
+                INSERT INTO "TH_Vehicles" (code, type) VALUES
+                ('60BO5307', 'Xe 28G'),
+                ('51B26542', 'Xe 28G'),
+                ('51B12345', 'Xe 16G'),
+                ('60BO1234', 'Xe 28G')
+            `);
+            console.log('✅ Đã thêm dữ liệu mẫu cho TH_Vehicles');
+        }
+
+        // Kiểm tra Users
+        const userCount = await queryOne('SELECT COUNT(*) as count FROM "TH_Users"');
+        if (parseInt(userCount.count) === 0) {
+            await query(`
+                INSERT INTO "TH_Users" (username, password, "fullName", role) VALUES
+                ('admin', 'admin123', 'Administrator', 'admin'),
+                ('quanly1', 'admin123', 'Quản lý 1', 'manager'),
+                ('nhanvien1', 'admin123', 'Nhân viên 1', 'user')
+            `);
+            console.log('✅ Đã thêm dữ liệu mẫu cho TH_Users');
+        }
+
+    } catch (err) {
+        console.error('❌ Lỗi thêm dữ liệu mẫu:', err);
     }
-
-    if (vehicleCount.recordset[0].count === 0) {
-      // Thêm xe mẫu
-      await pool.request().query(`
-        INSERT INTO Vehicles (code, type) VALUES
-        ('60BO5307', N'Xe 28G'),
-        ('51B26542', N'Xe 28G'),
-        ('51B12345', N'Xe 16G'),
-        ('60BO1234', N'Xe 28G')
-      `);
-      console.log('✅ Đã thêm dữ liệu mẫu cho Vehicles');
-    }
-
-    // Kiểm tra TimeSlots
-    const slotCount = await pool.request().query('SELECT COUNT(*) as count FROM TimeSlots');
-    if (slotCount.recordset[0].count === 0) {
-      // Thêm 1 khung giờ mẫu
-      const result = await pool.request().query(`
-        INSERT INTO TimeSlots (time, date, type, code, driver, phone)
-        OUTPUT INSERTED.id
-        VALUES ('05:30', '28/26', N'Xe 28G', '60BO5307', N'TX Thanh Bắc', '0918026316')
-      `);
-
-      const timeSlotId = result.recordset[0].id;
-
-      // Thêm 2 booking mẫu cho khung giờ này
-      await pool.request().query(`
-        INSERT INTO Bookings (timeSlotId, phone, name, gender, nationality, pickupMethod, pickupAddress, dropoffMethod, note, seatNumber, amount, paid, timeSlot, date)
-        VALUES
-        (${timeSlotId}, '0376670275', N'51. Nhà thọ Tân Bắc', 'male', N'Việt Nam', N'Dọc đường', N'Trạm Long Khánh', N'Tại bến', N'giao loan 1 thùng bông', 1, 100000, 0, '05:30', '26-11-2025'),
-        (${timeSlotId}, '0989347425', N'22. Ngã 4 Bình Thái', 'female', N'Việt Nam', N'Dọc đường', N'Trạm Long Khánh', N'Tại bến', N'1 ghế', 2, 100000, 0, '05:30', '26-11-2025')
-      `);
-      console.log('✅ Đã thêm dữ liệu mẫu cho TimeSlots và Bookings');
-    }
-
-    // Kiểm tra Users
-    const userCount = await pool.request().query('SELECT COUNT(*) as count FROM Users');
-    if (userCount.recordset[0].count === 0) {
-      // Thêm user admin mặc định (password: admin123)
-      await pool.request().query(`
-        INSERT INTO Users (username, password, fullName, role)
-        VALUES
-        ('admin', 'admin123', N'Administrator', 'admin'),
-        ('quanly1', 'admin123', N'Quản lý 1', 'manager'),
-        ('nhanvien1', 'admin123', N'Nhân viên 1', 'user')
-      `);
-      console.log('✅ Đã thêm dữ liệu mẫu cho Users');
-    }
-
-  } catch (err) {
-    console.error('❌ Lỗi thêm dữ liệu mẫu:', err);
-  }
 };
+
+/**
+ * Close database connection
+ */
+const closePool = async () => {
+    if (pool) {
+        await pool.end();
+        pool = null;
+        console.log('Đã đóng kết nối PostgreSQL');
+    }
+};
+
+// Tương thích với code cũ
+const getConnection = getPool;
 
 module.exports = {
-  getConnection,
-  initDatabase,
-  sql
+    getPool,
+    getConnection,
+    query,
+    queryOne,
+    initDatabase,
+    closePool
 };

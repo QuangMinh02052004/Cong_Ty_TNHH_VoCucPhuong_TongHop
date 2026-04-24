@@ -31,10 +31,12 @@ const LoginPage = () => {
       <div className="max-w-md w-full mx-4">
         {/* Logo và tiêu đề */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-500 rounded-full mb-4 shadow-lg">
-            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
+          <div className="flex justify-center mb-4">
+            <img
+              src={`${process.env.PUBLIC_URL}/logo.png`}
+              alt="Logo Võ Cúc Phương"
+              className="w-24 h-24 object-contain rounded-full shadow-lg"
+            />
           </div>
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
             Võ Cúc Phương

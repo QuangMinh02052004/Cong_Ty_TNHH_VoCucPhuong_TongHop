@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useBooking } from '../context/BookingContext';
+import ConfirmModal from './ConfirmModal';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -24,12 +25,21 @@ const Header = () => {
   // Kiểm tra xem route hiện tại có active không
   const isActive = (path) => location.pathname === path;
 
+  const [modal, setModal] = useState({ isOpen: false });
+
   // Hàm logout
   const handleLogout = () => {
-    if (window.confirm('Bạn có chắc muốn đăng xuất?')) {
-      logout();
-      navigate('/login');
-    }
+    setModal({
+      isOpen: true,
+      title: 'Đăng xuất',
+      message: 'Bạn có chắc muốn đăng xuất?',
+      type: 'warning',
+      onConfirm: () => {
+        setModal(m => ({ ...m, isOpen: false }));
+        logout();
+        navigate('/login');
+      }
+    });
   };
 
   return (
@@ -70,14 +80,6 @@ const Header = () => {
             >
               Điều hành
             </button>
-            <button
-              onClick={() => navigate('/cskh')}
-              className={`px-4 py-2 rounded transition text-sm ${
-                isActive('/cskh') ? 'bg-blue-600' : 'hover:bg-blue-600'
-              }`}
-            >
-              CSKH
-            </button>
           </nav>
 
           {/* Right Section - User Info & Balance */}
@@ -101,6 +103,14 @@ const Header = () => {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        isOpen={modal.isOpen}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        onConfirm={modal.onConfirm}
+        onCancel={() => setModal(m => ({ ...m, isOpen: false }))}
+      />
     </header>
   );
 };

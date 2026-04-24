@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import ConfirmModal from '../components/ConfirmModal';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Use relative URL for Vercel deployment - API routes are on the same domain
+const API_URL = '/api/tong-hop';
 
 const UserManagementPage = () => {
   const [users, setUsers] = useState([]);
@@ -17,6 +19,7 @@ const UserManagementPage = () => {
     role: 'user'
   });
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false });
 
   // Load users
   const loadUsers = async () => {
@@ -97,7 +100,7 @@ const UserManagementPage = () => {
           setMessage({ type: 'error', text: 'Vui lòng nhập mật khẩu!' });
           return;
         }
-        await axios.post(`${API_URL}/auth/register`, formData);
+        await axios.post(`${API_URL}/auth/users`, formData);
         setMessage({ type: 'success', text: 'Tạo user mới thành công!' });
       }
 
@@ -138,20 +141,27 @@ const UserManagementPage = () => {
   };
 
   // Delete user
-  const handleDelete = async (user) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa user "${user.fullName}"?`)) {
-      return;
-    }
-
-    try {
-      await axios.delete(`${API_URL}/auth/users/${user.id}`);
-      setMessage({ type: 'success', text: `Đã xóa user ${user.fullName}` });
-      loadUsers();
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-    } catch (error) {
-      console.error('Lỗi xóa user:', error);
-      setMessage({ type: 'error', text: 'Không thể xóa user' });
-    }
+  const handleDelete = (user) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Xóa tài khoản',
+      message: `Bạn có chắc muốn xóa user "${user.fullName}"?`,
+      type: 'danger',
+      danger: true,
+      confirmText: 'Xóa',
+      onConfirm: async () => {
+        setConfirmModal(m => ({ ...m, isOpen: false }));
+        try {
+          await axios.delete(`${API_URL}/auth/users/${user.id}`);
+          setMessage({ type: 'success', text: `Đã xóa user ${user.fullName}` });
+          loadUsers();
+          setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+        } catch (error) {
+          console.error('Lỗi xóa user:', error);
+          setMessage({ type: 'error', text: 'Không thể xóa user' });
+        }
+      }
+    });
   };
 
   return (
@@ -416,6 +426,16 @@ const UserManagementPage = () => {
           </div>
         </div>
       )}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        danger={confirmModal.danger}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(m => ({ ...m, isOpen: false }))}
+      />
     </div>
   );
 };

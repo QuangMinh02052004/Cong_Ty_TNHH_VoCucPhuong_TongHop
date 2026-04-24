@@ -11,8 +11,8 @@ export const useAuth = () => {
   return context;
 };
 
-// API URL - sử dụng full URL cho cross-domain requests
-const API_URL = 'https://vocucphuongmanage.vercel.app/api/tong-hop';
+// API URL - sử dụng relative URL cho Vercel deployment
+const API_URL = '/api/tong-hop';
 
 export const AuthProvider = ({ children }) => {
   // ✅ Khôi phục user từ localStorage khi load trang (tránh redirect khi refresh)

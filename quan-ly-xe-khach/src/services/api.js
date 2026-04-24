@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+// API URL - Vercel deployment
+const API_BASE_URL = 'https://vocucphuongmanage.vercel.app/api/tong-hop';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -156,6 +157,69 @@ export const vehicleAPI = {
   delete: async (id) => {
     const response = await api.delete(`/vehicles/${id}`);
     return response.data;
+  },
+};
+
+// ============ SEAT LOCKS API ============
+export const seatLockAPI = {
+  // Lấy tất cả locks
+  getAll: async () => {
+    const response = await api.get('/seat-locks');
+    return response.data;
+  },
+
+  // Lấy locks theo ngày và tuyến
+  getByDateRoute: async (date, route) => {
+    const response = await api.get('/seat-locks/by-date-route', {
+      params: { date, route }
+    });
+    return response.data;
+  },
+
+  // Tạo lock mới
+  create: async (data) => {
+    const response = await api.post('/seat-locks', data);
+    return response.data;
+  },
+
+  // Xóa lock theo ID
+  delete: async (id) => {
+    const response = await api.delete(`/seat-locks/${id}`);
+    return response.data;
+  },
+
+  // Xóa lock theo thông tin ghế
+  deleteBySeat: async (data) => {
+    const response = await api.delete('/seat-locks/by-seat', { data });
+    return response.data;
+  },
+
+  // Xóa tất cả lock của một user
+  releaseAll: async (lockedBy) => {
+    const response = await api.post('/seat-locks/release-all', { lockedBy });
+    return response.data;
+  },
+
+  // DEV: Xóa tất cả locks
+  clearAll: async () => {
+    const response = await api.delete('/seat-locks/clear-all');
+    return response.data;
+  },
+};
+
+// ============ ACTIVITY LOG API ============
+export const activityLogAPI = {
+  // Lấy log theo ngày + route
+  getByDateRoute: async (date, route, limit = 50) => {
+    const response = await api.get('/activity-log', {
+      params: { date, route, limit }
+    });
+    return response.data;
+  },
+
+  // Ghi log (fire-and-forget)
+  log: (data) => {
+    api.post('/activity-log', data).catch(() => {});
   },
 };
 

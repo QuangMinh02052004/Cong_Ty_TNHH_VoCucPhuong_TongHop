@@ -1,69 +1,102 @@
 import React, { useState, useEffect } from 'react';
 import { useBooking } from '../context/BookingContext';
+import { useAuth } from '../context/AuthContext';
+import { activityLogAPI } from '../services/api';
 import axios from 'axios';
-import { stationNames } from '../data/stations';
+import { stationNamesWithSTT, extractStationFromText, removeStationFromText } from '../data/stations';
+import ConfirmModal from './ConfirmModal';
+import StationInput from './StationInput';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = 'https://vocucphuongmanage.vercel.app/api/tong-hop';
 
 const PassengerFormNew = () => {
-  const { addBooking, updateBooking, selectedTrip, bookings, currentDayBookings, setShowPassengerForm, selectedSeatNumber, setSelectedSeatNumber } = useBooking();
+  const {
+    addBooking,
+    updateBooking,
+    selectedTrip,
+    bookings,
+    currentDayBookings,
+    setShowPassengerForm,
+    selectedSeatNumber,
+    setSelectedSeatNumber,
+    editingBooking,
+    setEditingBooking,
+    transferQueue,
+    setTransferQueue,
+    selectedRoute,
+    selectedDate,
+    releaseSeat
+  } = useBooking();
+
+  const { user } = useAuth();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [foundPassenger, setFoundPassenger] = useState(null);
   const [searching, setSearching] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: () => {} });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Parse route for Bến lên / Bến xuống defaults
+  const routeParts = (selectedRoute || '').split('-').map(s => s.trim());
+  const defaultPickupStation = routeParts[0] ? `Trạm ${routeParts[0]}` : '';
+  const defaultDropoffStation = routeParts[1] ? `Trạm ${routeParts[1]}` : '';
 
   const [formData, setFormData] = useState({
     phone: '',
     name: '',
     gender: '',
-    nationality: 'Việt Nam',
-    pickupMethod: 'Dọc đường',
+    nationality: '',
+    ticketType: false,
+    pickupStation: defaultPickupStation,
+    dropoffStation: defaultDropoffStation,
+    pickupMethod: 'Tại bến',
     pickupAddress: '',
     dropoffMethod: 'Tại bến',
     dropoffAddress: '',
     note: '',
     seatNumber: null,
-    amount: 100000,
+    amount: 110000,
     paid: 0,
+    deposit: 0,
+    paymentMethod: 'Thanh toán tiền mặt tại quầy',
     preferredSeat: false,
     sendSMS: false,
     printTicket: false,
     printStamp: false,
     sendEmail: false,
     sendZalo: false,
-    autoFill: false,
+    autoFill: true,
   });
 
-  // Hàm tìm kiếm hành khách theo số điện thoại (gọi API)
   const searchPassengerByPhone = async (phone) => {
     if (phone.length >= 10) {
       setSearching(true);
       try {
         const response = await axios.get(`${API_URL}/customers/search/${phone}`);
-
         if (response.data.found) {
           const customer = response.data.customer;
           setFoundPassenger(customer);
-
-          // Tự động điền thông tin
           setFormData(prev => ({
             ...prev,
             name: customer.fullName || '',
-            pickupMethod: customer.pickupType || 'Dọc đường',
+            pickupMethod: customer.pickupType || 'Tại bến',
             pickupAddress: customer.pickupLocation || '',
             dropoffMethod: customer.dropoffType || 'Tại bến',
             dropoffAddress: customer.dropoffLocation || '',
             note: customer.notes || '',
           }));
-
           return true;
         } else {
           setFoundPassenger(null);
           return false;
         }
       } catch (error) {
-        console.error('Lỗi tìm khách hàng:', error);
         setFoundPassenger(null);
         return false;
       } finally {
@@ -73,460 +106,375 @@ const PassengerFormNew = () => {
     return false;
   };
 
+  // Format VND: 1000 → "1.000", 1000000 → "1.000.000"
+  const formatVND = (value) => {
+    const num = String(value).replace(/\D/g, '');
+    if (!num) return '';
+    return new Intl.NumberFormat('vi-VN').format(parseInt(num));
+  };
+  const parseVND = (str) => parseInt(String(str).replace(/\./g, '')) || 0;
+
+  const moneyFields = ['amount', 'deposit', 'paid'];
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-
-    // Cập nhật giá trị
     setFormData(prev => {
-      const newData = {
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      };
-
-      // Xóa địa chỉ đón khi chọn "Tại bến"
-      if (name === 'pickupMethod' && value === 'Tại bến') {
-        newData.pickupAddress = '';
+      let newValue = type === 'checkbox' ? checked : value;
+      // Parse tiền VND về số
+      if (moneyFields.includes(name)) {
+        newValue = parseVND(value);
       }
-
-      // Xóa địa chỉ trả khi chọn "Tại bến"
-      if (name === 'dropoffMethod' && value === 'Tại bến') {
-        newData.dropoffAddress = '';
-      }
-
+      const newData = { ...prev, [name]: newValue };
+      if (name === 'pickupMethod' && value === 'Tại bến') newData.pickupAddress = '';
+      if (name === 'dropoffMethod' && value === 'Tại bến') newData.dropoffAddress = '';
       return newData;
     });
+    if (name === 'phone') searchPassengerByPhone(value);
+  };
 
-    // Nếu là số điện thoại, tìm kiếm tự động
-    if (name === 'phone') {
-      searchPassengerByPhone(value);
+  const handleNoteBlur = () => {
+    const match = extractStationFromText(formData.note);
+    if (match) {
+      const formattedSTT = String(match.stt).padStart(2, '0');
+      const stationValue = `${formattedSTT} - ${match.stationName}`;
+      const cleanNote = removeStationFromText(formData.note, match);
+      setFormData(prev => ({
+        ...prev, note: cleanNote, dropoffMethod: 'Dọc đường', dropoffAddress: stationValue
+      }));
+    }
+  };
+
+  const handleStartTransfer = () => {
+    const bookingToTransfer = currentDayBookings.find(b => b.id === editingId);
+    if (bookingToTransfer) {
+      const alreadyInQueue = transferQueue.find(b => b.id === bookingToTransfer.id);
+      if (!alreadyInQueue) setTransferQueue(prev => [...prev, bookingToTransfer]);
+      setShowPassengerForm(false);
+      setIsEditing(false);
+      setEditingId(null);
+      resetForm();
     }
   };
 
   const handleSubmit = async () => {
     if (!formData.phone || !formData.name) {
-      alert('Vui lòng nhập số điện thoại và họ tên!');
+      setModal({ isOpen: true, title: 'Thiếu thông tin', message: 'Vui lòng nhập số điện thoại và họ tên!', type: 'warning', cancelText: null, onConfirm: () => setModal(m => ({ ...m, isOpen: false })) });
       return;
     }
-
     if (isEditing) {
-      // Cập nhật booking
       updateBooking(editingId, formData);
-      alert('Đã cập nhật thông tin hành khách!');
+      activityLogAPI.log({ action: 'edit', description: `Sửa vé: ${formData.name} - Ghế ${formData.seatNumber} - SĐT ${formData.phone} - Chuyến ${selectedTrip?.time || ''} - Trả: ${formData.dropoffAddress || formData.dropoffMethod || 'Tại bến'}`, bookingId: editingId, seatNumber: formData.seatNumber, userName: user?.fullName || user?.username, date: selectedDate, route: selectedRoute, timeSlot: selectedTrip?.time });
+      showToast('Đã cập nhật thông tin hành khách!');
       setIsEditing(false);
       setEditingId(null);
     } else {
-      // Kiểm tra ghế đã được đặt chưa (chỉ cho booking mới)
       if (formData.seatNumber) {
         const seatTaken = currentDayBookings.find(
           booking => booking.timeSlot === selectedTrip.time && booking.seatNumber === formData.seatNumber
         );
-
         if (seatTaken) {
-          alert(`⚠️ Ghế ${formData.seatNumber} đã được đặt bởi ${seatTaken.name} (${seatTaken.phone}).\nVui lòng chọn ghế khác!`);
+          setModal({ isOpen: true, title: 'Ghế đã có người', message: `Ghế ${formData.seatNumber} đã được đặt bởi ${seatTaken.name} (${seatTaken.phone}).\nVui lòng chọn ghế khác!`, type: 'warning', cancelText: null, onConfirm: () => setModal(m => ({ ...m, isOpen: false })) });
           return;
         }
       }
-
-      // Thêm booking mới
       addBooking(formData);
-
-      // Lưu thông tin khách hàng vào database
+      activityLogAPI.log({ action: 'add', description: `Thêm vé: ${formData.name} - Ghế ${formData.seatNumber} - SĐT ${formData.phone} - Chuyến ${selectedTrip?.time || ''} - Trả: ${formData.dropoffAddress || formData.dropoffMethod || 'Tại bến'}`, seatNumber: formData.seatNumber, userName: user?.fullName || user?.username, date: selectedDate, route: selectedRoute, timeSlot: selectedTrip?.time });
+      if (formData.seatNumber && selectedTrip) releaseSeat(selectedTrip.id, formData.seatNumber);
       try {
         await axios.post(`${API_URL}/customers`, {
-          phone: formData.phone,
-          fullName: formData.name,
-          pickupType: formData.pickupMethod,
-          pickupLocation: formData.pickupAddress,
-          dropoffType: formData.dropoffMethod,
-          dropoffLocation: formData.dropoffAddress,
+          phone: formData.phone, fullName: formData.name,
+          pickupType: formData.pickupMethod, pickupLocation: formData.pickupAddress,
+          dropoffType: formData.dropoffMethod, dropoffLocation: formData.dropoffAddress,
           notes: formData.note
         });
-        console.log('✅ Đã lưu thông tin khách hàng');
-      } catch (error) {
-        console.error('Lỗi lưu khách hàng:', error);
-      }
-
-      alert('Đã thêm hành khách thành công!');
+      } catch (error) { /* ignore */ }
+      showToast('Đã thêm hành khách thành công!');
     }
-
-    // Reset form
     resetForm();
+    // Tự động đóng form sau khi thành công
+    setTimeout(() => setShowPassengerForm(false), 300);
   };
 
   const resetForm = () => {
     setFormData({
-      phone: '',
-      name: '',
-      gender: '',
-      nationality: 'Việt Nam',
-      pickupMethod: 'Dọc đường',
-      pickupAddress: '',
-      dropoffMethod: 'Tại bến',
-      dropoffAddress: '',
-      note: '',
-      seatNumber: null,
-      amount: 100000,
-      paid: 0,
-      preferredSeat: false,
-      sendSMS: false,
-      printTicket: false,
-      printStamp: false,
-      sendEmail: false,
-      sendZalo: false,
-      autoFill: false,
+      phone: '', name: '', gender: '', nationality: '', ticketType: false,
+      pickupStation: defaultPickupStation, dropoffStation: defaultDropoffStation,
+      pickupMethod: 'Tại bến', pickupAddress: '',
+      dropoffMethod: 'Tại bến', dropoffAddress: '',
+      note: '', seatNumber: null, amount: 110000, paid: 0, deposit: 0,
+      paymentMethod: 'Thanh toán tiền mặt tại quầy',
+      preferredSeat: false, sendSMS: false, printTicket: false, printStamp: false,
+      sendEmail: false, sendZalo: false, autoFill: true,
     });
     setSelectedSeatNumber(null);
   };
 
-  // Hàm để load dữ liệu vào form khi edit (sẽ được gọi từ SeatMap)
-  const loadBookingData = (booking) => {
-    setFormData(booking);
-    setIsEditing(true);
-    setEditingId(booking.id);
-  };
+  useEffect(() => {
+    if (editingBooking) {
+      setFormData(prev => ({ ...prev, ...editingBooking }));
+      setIsEditing(true);
+      setEditingId(editingBooking.id);
+      setEditingBooking(null);
+    }
+  }, [editingBooking, setEditingBooking]);
 
-  // Tự động điền số ghế khi có ghế được chọn
   useEffect(() => {
     if (selectedSeatNumber !== null && !isEditing) {
-      setFormData(prev => ({
-        ...prev,
-        seatNumber: selectedSeatNumber
-      }));
+      setFormData(prev => ({ ...prev, seatNumber: selectedSeatNumber }));
     }
   }, [selectedSeatNumber, isEditing]);
 
-  // Export hàm này để SeatMap có thể gọi
-  useEffect(() => {
-    window.loadPassengerForm = loadBookingData;
-  }, []);
+  const remaining = (formData.amount || 0) - (formData.paid || 0);
+  const tripTime = selectedTrip?.time || '';
+  const tripVehicle = selectedTrip?.vehicle || '';
+
+  const inp = "w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-sky-500 focus:border-sky-500 outline-none";
+  const lbl = "text-sm font-medium text-gray-700 whitespace-nowrap w-[90px] min-w-[90px] text-right pr-3";
+  const row = "flex items-center";
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 pb-3 border-b">
-        <h2 className="text-lg font-bold text-gray-800">
-          {isEditing ? 'CHỈNH SỬA HÀNH KHÁCH' : 'THÔNG TIN HÀNH KHÁCH'}
-        </h2>
+    <div className="bg-white flex flex-col min-h-full">
+      {/* THÔNG TIN HÀNH KHÁCH */}
+      <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+        <span className="font-bold text-gray-800 text-sm uppercase">
+          {isEditing ? 'Chỉnh sửa hành khách' : 'Thông tin hành khách'}
+        </span>
         <button
           onClick={() => {
+            if (selectedSeatNumber && selectedTrip && !isEditing) releaseSeat(selectedTrip.id, selectedSeatNumber);
             setShowPassengerForm(false);
             setSelectedSeatNumber(null);
           }}
-          className="text-gray-400 hover:text-red-500 transition text-2xl font-bold"
-          title="Đóng"
-        >
-          ×
-        </button>
+          className="text-gray-400 hover:text-red-500 text-xl font-bold leading-none" title="Đóng"
+        >×</button>
       </div>
 
-      {/* Form Fields */}
-      <div className="space-y-3">
+      <div className="px-4 py-3 space-y-2.5 flex-1">
         {/* Điện thoại */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Điện thoại <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              name="phone"
-              value={formData.phone}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              placeholder="Nhập số điện thoại"
-              required
-            />
-            <button className="absolute right-2 top-2 text-blue-600 hover:text-blue-800 text-xs font-semibold">
-              Tìm
-            </button>
-          </div>
-
-          {/* Thông báo tìm thấy */}
-          {foundPassenger && (
-            <div className="mt-2 p-2 bg-green-50 border border-green-300 rounded-md flex items-center gap-2">
-              <span className="text-green-600 text-sm">✅ Đã tìm thấy: <strong>{foundPassenger.name}</strong></span>
-              <span className="text-xs text-green-500">(Thông tin đã được tự động điền)</span>
-            </div>
-          )}
+        <div className={row}>
+          <label className={lbl}>Điện thoại</label>
+          <input type="text" name="phone" value={formData.phone} onChange={handleInputChange}
+            autoComplete="off" className={`${inp} flex-1`} placeholder="Số điện thoại" />
         </div>
+        {foundPassenger && (
+          <div className="ml-[94px] px-2 py-1 bg-emerald-50 border border-emerald-300 rounded text-xs text-emerald-600">
+            Tìm thấy: <strong>{foundPassenger.name}</strong>
+          </div>
+        )}
 
         {/* Họ tên */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Họ tên <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            placeholder="Nhập họ tên"
-            required
-          />
+        <div className={row}>
+          <label className={lbl}>Họ tên</label>
+          <input type="text" name="name" value={formData.name} onChange={handleInputChange}
+            autoComplete="off" className={`${inp} flex-1`} placeholder="" />
         </div>
 
-        {/* Cách đón - QUAN TRỌNG */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Cách đón <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="pickupMethod"
-            value={formData.pickupMethod}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-orange-400 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none bg-orange-50 font-semibold"
-          >
-            <option value="Dọc đường">Dọc đường</option>
+        {/* Bến lên */}
+        <div className={row}>
+          <label className={lbl}>Bến lên</label>
+          <select name="pickupStation" value={formData.pickupStation} onChange={handleInputChange}
+            className={`${inp} flex-1`}>
+            <option value={defaultPickupStation}>{defaultPickupStation || '-- Chọn bến --'}</option>
+            {stationNamesWithSTT.map((s, i) => <option key={i} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        {/* Bến xuống */}
+        <div className={row}>
+          <label className={lbl}>Bến xuống</label>
+          <select name="dropoffStation" value={formData.dropoffStation} onChange={handleInputChange}
+            className={`${inp} flex-1`}>
+            <option value={defaultDropoffStation}>{defaultDropoffStation || '-- Chọn bến --'}</option>
+            {stationNamesWithSTT.map((s, i) => <option key={i} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        {/* Cách đón */}
+        <div className={row}>
+          <label className={lbl}>Cách đón <span className="text-red-500">*</span></label>
+          <select name="pickupMethod" value={formData.pickupMethod} onChange={handleInputChange}
+            className={`${inp} flex-1`}>
             <option value="Tại bến">Tại bến</option>
+            <option value="Dọc đường">Dọc đường</option>
             <option value="Tại nhà">Tại nhà</option>
           </select>
-          <p className="text-xs text-orange-600 mt-1">
-            ⚠️ Chọn "Dọc đường" sẽ đồng bộ với hệ thống Nhập Hàng
-          </p>
         </div>
 
-        {/* Địa chỉ đón */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Địa chỉ đón
-          </label>
-          <input
-            type="text"
-            name="pickupAddress"
-            value={formData.pickupAddress}
-            onChange={handleInputChange}
-            list="pickup-stations-list"
-            disabled={formData.pickupMethod === 'Tại bến'}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
-              formData.pickupMethod === 'Tại bến' ? 'bg-gray-100 cursor-not-allowed' : ''
-            }`}
-            placeholder="Chọn hoặc nhập địa chỉ đón"
-          />
-          <datalist id="pickup-stations-list">
-            {stationNames.map((station, index) => (
-              <option key={index} value={station} />
-            ))}
-          </datalist>
-          <p className="text-xs text-gray-500 mt-1">
-            💡 Bạn có thể chọn từ danh sách hoặc tự nhập địa chỉ
-          </p>
-        </div>
+        {formData.pickupMethod !== 'Tại bến' && (
+          <div className={row}>
+            <label className={lbl}></label>
+            <StationInput
+              value={formData.pickupAddress}
+              onChange={(val) => handleInputChange({ target: { name: 'pickupAddress', value: val } })}
+              options={stationNamesWithSTT}
+              placeholder="Chọn hoặc nhập địa chỉ đón"
+              className="flex-1"
+            />
+          </div>
+        )}
 
         {/* Cách trả */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Cách trả <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="dropoffMethod"
-            value={formData.dropoffMethod}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          >
+        <div className={row}>
+          <label className={lbl}>Cách trả <span className="text-red-500">*</span></label>
+          <select name="dropoffMethod" value={formData.dropoffMethod} onChange={handleInputChange}
+            className={`${inp} flex-1`}>
             <option value="Tại bến">Tại bến</option>
             <option value="Dọc đường">Dọc đường</option>
           </select>
         </div>
 
-        {/* Địa chỉ trả */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Địa chỉ trả
-          </label>
-          <input
-            type="text"
-            name="dropoffAddress"
-            value={formData.dropoffAddress}
-            onChange={handleInputChange}
-            list="dropoff-stations-list"
-            disabled={formData.dropoffMethod === 'Tại bến'}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
-              formData.dropoffMethod === 'Tại bến' ? 'bg-gray-100 cursor-not-allowed' : ''
-            }`}
-            placeholder="Chọn hoặc nhập địa chỉ trả"
-          />
-          <datalist id="dropoff-stations-list">
-            {stationNames.map((station, index) => (
-              <option key={index} value={station} />
-            ))}
-          </datalist>
-          <p className="text-xs text-gray-500 mt-1">
-            💡 Bạn có thể chọn từ danh sách hoặc tự nhập địa chỉ
-          </p>
-        </div>
-
-        {/* Số ghế */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Số ghế
-          </label>
-          <input
-            type="number"
-            name="seatNumber"
-            value={formData.seatNumber || ''}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            placeholder="Tự động"
-          />
-        </div>
-
-        {/* Thông tin thanh toán */}
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md space-y-2">
-          <h3 className="text-sm font-bold text-blue-800 mb-2">💰 Thanh toán</h3>
-
-          {/* Giá vé */}
-          <div className="flex justify-between items-center">
-            <label className="text-sm font-medium text-gray-700">
-              Giá vé:
-            </label>
-            <input
-              type="number"
-              name="amount"
-              value={formData.amount}
-              onChange={handleInputChange}
-              className="w-32 px-3 py-1 border border-gray-300 rounded-md text-right font-semibold"
+        {formData.dropoffMethod !== 'Tại bến' && (
+          <div className={row}>
+            <label className={lbl}></label>
+            <StationInput
+              value={formData.dropoffAddress}
+              onChange={(val) => handleInputChange({ target: { name: 'dropoffAddress', value: val } })}
+              options={stationNamesWithSTT}
+              placeholder="Chọn hoặc nhập địa chỉ trả"
+              className="flex-1"
             />
           </div>
-
-          {/* Đã thanh toán */}
-          <div className="flex justify-between items-center">
-            <label className="text-sm font-medium text-gray-700">
-              Đã thanh toán: <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              name="paid"
-              value={formData.paid}
-              onChange={handleInputChange}
-              className="w-32 px-3 py-1 border border-green-400 rounded-md text-right font-bold bg-green-50 focus:ring-2 focus:ring-green-500"
-              placeholder="0"
-            />
-          </div>
-
-          {/* Còn nợ */}
-          <div className="flex justify-between items-center pt-2 border-t border-blue-200">
-            <label className="text-sm font-bold text-gray-700">
-              Còn nợ:
-            </label>
-            <span className={`text-lg font-bold ${
-              (formData.amount - formData.paid) > 0 ? 'text-red-600' : 'text-green-600'
-            }`}>
-              {new Intl.NumberFormat('vi-VN').format(formData.amount - formData.paid)} đ
-            </span>
-          </div>
-
-          {/* Nút thanh toán nhanh */}
-          <div className="flex gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, paid: prev.amount }))}
-              className="flex-1 px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition"
-            >
-              ✓ Thanh toán đủ
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, paid: Math.floor(prev.amount / 2) }))}
-              className="flex-1 px-2 py-1 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 transition"
-            >
-              50%
-            </button>
-            <button
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, paid: 0 }))}
-              className="flex-1 px-2 py-1 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 transition"
-            >
-              Chưa trả
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* Ghi chú */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Ghi chú
-          </label>
-          <textarea
-            name="note"
-            value={formData.note}
-            onChange={handleInputChange}
-            rows="2"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            placeholder="Nhập ghi chú"
-          />
+        <div className="flex items-start">
+          <label className={lbl + ' pt-2'}>Ghi chú</label>
+          <textarea name="note" value={formData.note} onChange={handleInputChange} onBlur={handleNoteBlur}
+            rows="3" className={`${inp} flex-1`} placeholder="" />
         </div>
 
         {/* Checkboxes */}
-        <div className="grid grid-cols-2 gap-2 pt-2">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              name="preferredSeat"
-              checked={formData.preferredSeat}
-              onChange={handleInputChange}
-              className="w-4 h-4 text-blue-600 rounded"
-            />
-            <span className="text-sm">Ghế ưu đãi</span>
-          </label>
-
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              name="sendSMS"
-              checked={formData.sendSMS}
-              onChange={handleInputChange}
-              className="w-4 h-4 text-blue-600 rounded"
-            />
-            <span className="text-sm">Gửi tin nhận</span>
-          </label>
-
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              name="printTicket"
-              checked={formData.printTicket}
-              onChange={handleInputChange}
-              className="w-4 h-4 text-blue-600 rounded"
-            />
-            <span className="text-sm">In vé</span>
-          </label>
-
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              name="printStamp"
-              checked={formData.printStamp}
-              onChange={handleInputChange}
-              className="w-4 h-4 text-blue-600 rounded"
-            />
-            <span className="text-sm">In tem vé</span>
-          </label>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 ml-[94px]">
+          {[
+            { name: 'preferredSeat', label: 'Ghế ưu đãi' },
+            { name: 'sendSMS', label: 'Gửi tin nhắn' },
+            { name: 'printTicket', label: 'In vé' },
+            { name: 'printStamp', label: 'In tem vé' },
+            { name: 'sendEmail', label: 'Gửi email' },
+            { name: 'sendZalo', label: 'Gửi ZALO OA' },
+          ].map(cb => (
+            <label key={cb.name} className="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" name={cb.name} checked={formData[cb.name] || false} onChange={handleInputChange}
+                className="w-4 h-4 rounded" />
+              <span className="text-sm text-gray-600">{cb.label}</span>
+            </label>
+          ))}
         </div>
 
-        {/* Submit Button */}
-        <div className="pt-3 border-t">
-          <button
-            onClick={handleSubmit}
-            className="w-full px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition font-bold text-lg"
-          >
-            {isEditing ? '💾 Cập nhật' : '➕ Thêm hành khách'}
-          </button>
+        {/* Tự động điền */}
+        <div className="ml-[94px] pt-1">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" name="autoFill" checked={formData.autoFill} onChange={handleInputChange}
+              className="w-4 h-4 rounded text-sky-600" />
+            <span className="text-sm text-sky-600 font-medium">Tự động điền cho tất cả</span>
+          </label>
+        </div>
+      </div>
 
-          {isEditing && (
-            <button
-              onClick={() => {
-                setIsEditing(false);
-                setEditingId(null);
-                resetForm();
-              }}
-              className="w-full mt-2 px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500 transition"
-            >
-              Hủy chỉnh sửa
-            </button>
+      {/* THÔNG TIN THANH TOÁN */}
+      <div className="px-4 py-2.5 border-y border-gray-200 bg-gray-50">
+        <span className="font-bold text-gray-800 text-sm uppercase">Thông tin thanh toán</span>
+      </div>
+
+      <div className="px-4 py-3 space-y-2.5">
+        {/* Thực thu */}
+        <div className={row}>
+          <label className={lbl}>Thực thu <span className="text-red-500">*</span></label>
+          <input type="text" inputMode="numeric" name="amount" value={formatVND(formData.amount)} onChange={handleInputChange}
+            autoComplete="off" className={`${inp} flex-1 text-right font-semibold`} />
+        </div>
+
+        {/* Thu cọc/Thu tiếp */}
+        <div className={row}>
+          <label className={lbl}>Thu cọc/Thu tiếp</label>
+          <input type="text" inputMode="numeric" name="deposit" value={formatVND(formData.deposit)} onChange={handleInputChange}
+            autoComplete="off" className={`${inp} flex-1 text-right`} />
+        </div>
+
+        {/* Đã thu + Còn lại */}
+        <div className={row}>
+          <label className={lbl}>Đã thu</label>
+          <input type="text" inputMode="numeric" name="paid" value={formatVND(formData.paid)} onChange={handleInputChange}
+            autoComplete="off" className={`${inp} w-24 text-right`} />
+          <span className="text-sm text-gray-500 mx-2">Còn lại</span>
+          <span className={`text-base font-bold ${remaining > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            {new Intl.NumberFormat('vi-VN').format(remaining)}
+          </span>
+        </div>
+
+        {/* Hình thức TT */}
+        <div className={row}>
+          <label className={lbl}>Hình thức TT</label>
+          <select name="paymentMethod" value={formData.paymentMethod} onChange={handleInputChange}
+            className={`${inp} flex-1`}>
+            <option value="Thanh toán tiền mặt tại quầy">Thanh toán tiền mặt tại quầy</option>
+            <option value="Chuyển khoản">Chuyển khoản</option>
+            <option value="Thẻ tín dụng">Thẻ tín dụng</option>
+            <option value="Ví điện tử">Ví điện tử</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Trip Info Bar */}
+      <div className="mt-auto bg-slate-800 text-white px-4 py-3 text-sm space-y-1">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="font-bold">{tripTime} - {selectedDate || ''}, xe: {tripVehicle || '---'}</div>
+            <div>Số ghế: <strong>{formData.seatNumber || '-'}</strong>
+              <span className="ml-4">Tổng tiền: <strong>{new Intl.NumberFormat('vi-VN').format(formData.amount)}</strong></span>
+            </div>
+            <div>Thực thu: <strong>{new Intl.NumberFormat('vi-VN').format(formData.amount)}</strong>
+              <span className="ml-4">Đã thu: <strong>{new Intl.NumberFormat('vi-VN').format(formData.paid)}</strong></span>
+            </div>
+          </div>
+          {remaining > 0 && (
+            <span className="bg-red-500 text-white px-3 py-1.5 rounded font-bold text-sm whitespace-nowrap">
+              Phải thu: {new Intl.NumberFormat('vi-VN').format(remaining)}
+            </span>
           )}
         </div>
       </div>
+
+      {/* Action Buttons */}
+      <div className="flex border-t border-gray-300">
+        <button onClick={() => setFormData(prev => ({ ...prev, paid: prev.amount }))}
+          className="flex-1 py-3 text-sm font-bold text-blue-700 border-r border-gray-300 hover:bg-blue-50 transition">
+          Thu tiền
+        </button>
+        {isEditing && (
+          <button type="button" onClick={handleStartTransfer}
+            className="flex-1 py-3 text-sm font-bold text-orange-600 border-r border-gray-300 hover:bg-orange-50 transition">
+            Chuyển
+          </button>
+        )}
+        <button onClick={handleSubmit}
+          className="flex-1 py-3 text-sm font-bold text-emerald-700 hover:bg-emerald-50 transition">
+          {isEditing ? 'Cập nhật' : 'Thêm hành khách'}
+        </button>
+        {isEditing && (
+          <button onClick={() => { setIsEditing(false); setEditingId(null); resetForm(); }}
+            className="flex-1 py-3 text-sm font-bold text-gray-500 border-l border-gray-300 hover:bg-gray-100 transition">
+            Hủy
+          </button>
+        )}
+      </div>
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-[9999] px-4 py-3 rounded-xl shadow-lg text-white text-sm font-semibold animate-[slideIn_0.3s_ease] ${toast.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`}>
+          {toast.message}
+        </div>
+      )}
+
+      {/* Confirm/Alert Modal */}
+      <ConfirmModal
+        isOpen={modal.isOpen}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        cancelText={modal.cancelText}
+        onConfirm={modal.onConfirm}
+        onCancel={() => setModal(m => ({ ...m, isOpen: false }))}
+      />
     </div>
   );
 };

@@ -20,6 +20,8 @@ app.use('/api/vehicles', require('./routes/vehicles'));
 app.use('/api/stations', require('./routes/stations'));
 app.use('/api/customers', require('./routes/customers'));
 app.use('/api/freight', require('./routes/freight'));
+app.use('/api/webhook', require('./routes/webhook'));
+app.use('/api/seat-locks', require('./routes/seatLocks'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -1,251 +1,129 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = '/api/tong-hop';
+
+// Danh sách biển số xe (đồng bộ với NhapHang)
+const VEHICLE_LIST = [
+  "01031","01057","01374","01785","04145","04424","04466","04564",
+  "04627","04647","04650","04668","04669","04671","05296","05307",
+  "05352","05480","23033","23831","26018","26025","26030","26186",
+  "26411","26542","26879","27452","27642","27683","26165","27795",
+  "31437","31935","87497","04103","49642","T15026","T32309"
+];
 
 const HangHoaPage = () => {
-  const [freightList, setFreightList] = useState([]);
-  const [timeSlots, setTimeSlots] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [stations, setStations] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingFreight, setEditingFreight] = useState(null);
-  const [stats, setStats] = useState(null);
+  const [activeTab, setActiveTab] = useState('homnay'); // 'homnay' | 'tongquan' | 'theoxe'
 
-  // Filters
-  const [filters, setFilters] = useState({
-    status: '',
-    timeSlotId: '',
-    fromDate: '',
-    toDate: ''
-  });
+  // Today's freight
+  const [todayList, setTodayList] = useState([]);
+  const [todayStats, setTodayStats] = useState(null);
+  const [todayLoading, setTodayLoading] = useState(false);
 
-  // Form data
-  const [formData, setFormData] = useState({
-    time_slot_id: '',
-    sender_customer_id: '',
-    receiver_name: '',
-    receiver_phone: '',
-    receiver_address: '',
-    pickup_station_id: '',
-    delivery_station_id: '',
-    description: '',
-    weight: '',
-    size_length: '',
-    size_width: '',
-    size_height: '',
-    quantity: 1,
-    freight_charge: 0,
-    cod_amount: 0,
-    special_instructions: ''
-  });
+  // All freight (tổng quan)
+  const [allList, setAllList] = useState([]);
+  const [allStats, setAllStats] = useState(null);
+  const [allLoading, setAllLoading] = useState(false);
+  const [allFilters, setAllFilters] = useState({ status: '', fromDate: '', toDate: '' });
 
-  // Lấy token từ localStorage
-  const getAuthToken = () => {
-    return localStorage.getItem('token');
-  };
+  // Vehicle freight
+  const [vehicleSearch, setVehicleSearch] = useState('');
+  const [vehicleDate, setVehicleDate] = useState(new Date().toISOString().split('T')[0]);
+  const [vehicleData, setVehicleData] = useState([]);
+  const [vehicleLoading, setVehicleLoading] = useState(false);
+  const [expandedVehicle, setExpandedVehicle] = useState(null);
 
-  // Tạo axios config với token
-  const getAxiosConfig = () => {
-    return {
-      headers: {
-        Authorization: `Bearer ${getAuthToken()}`
-      }
-    };
-  };
+  const getAuthToken = () => localStorage.getItem('token');
+  const getAxiosConfig = () => ({ headers: { Authorization: `Bearer ${getAuthToken()}` } });
+  const todayISO = new Date().toISOString().split('T')[0];
 
-  // Load dữ liệu ban đầu
-  useEffect(() => {
-    loadFreightList();
-    loadTimeSlots();
-    loadCustomers();
-    loadStations();
-    loadStats();
-  }, [filters]);
-
-  const loadFreightList = async () => {
+  // === Load today's data ===
+  const loadToday = async () => {
     try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (filters.status) params.append('status', filters.status);
-      if (filters.timeSlotId) params.append('timeSlotId', filters.timeSlotId);
-      if (filters.fromDate) params.append('fromDate', filters.fromDate);
-      if (filters.toDate) params.append('toDate', filters.toDate);
-
-      const response = await axios.get(
-        `${API_URL}/freight?${params.toString()}`,
-        getAxiosConfig()
-      );
-      setFreightList(response.data);
+      setTodayLoading(true);
+      const [listRes, statsRes] = await Promise.all([
+        axios.get(`${API_URL}/freight?fromDate=${todayISO}&toDate=${todayISO}`, getAxiosConfig()),
+        axios.get(`${API_URL}/freight/stats?fromDate=${todayISO}&toDate=${todayISO}`, getAxiosConfig()),
+      ]);
+      const data = Array.isArray(listRes.data) ? listRes.data : (listRes.data.data || []);
+      setTodayList(data);
+      setTodayStats(statsRes.data);
     } catch (error) {
-      console.error('Lỗi tải danh sách hàng hóa:', error);
-      alert('Không thể tải danh sách hàng hóa');
+      console.error('Lỗi tải dữ liệu hôm nay:', error);
+      setTodayList([]);
     } finally {
-      setLoading(false);
+      setTodayLoading(false);
     }
   };
 
-  const loadTimeSlots = async () => {
+  // === Load all data (tổng quan) ===
+  const loadAll = async () => {
     try {
-      const response = await axios.get(`${API_URL}/timeslots`, getAxiosConfig());
-      setTimeSlots(response.data);
+      setAllLoading(true);
+      const params = new URLSearchParams();
+      if (allFilters.status) params.append('status', allFilters.status);
+      if (allFilters.fromDate) params.append('fromDate', allFilters.fromDate);
+      if (allFilters.toDate) params.append('toDate', allFilters.toDate);
+
+      const statsParams = new URLSearchParams();
+      if (allFilters.fromDate) statsParams.append('fromDate', allFilters.fromDate);
+      if (allFilters.toDate) statsParams.append('toDate', allFilters.toDate);
+
+      const [listRes, statsRes] = await Promise.all([
+        axios.get(`${API_URL}/freight?${params.toString()}`, getAxiosConfig()),
+        axios.get(`${API_URL}/freight/stats?${statsParams.toString()}`, getAxiosConfig()),
+      ]);
+      const data = Array.isArray(listRes.data) ? listRes.data : (listRes.data.data || []);
+      setAllList(data);
+      setAllStats(statsRes.data);
     } catch (error) {
-      console.error('Lỗi tải khung giờ:', error);
+      console.error('Lỗi tải tổng quan:', error);
+      setAllList([]);
+    } finally {
+      setAllLoading(false);
     }
   };
 
-  const loadCustomers = async () => {
+  // === Load vehicle freight ===
+  const loadVehicleFreight = async () => {
     try {
-      const response = await axios.get(`${API_URL}/customers`, getAxiosConfig());
-      setCustomers(response.data);
-    } catch (error) {
-      console.error('Lỗi tải khách hàng:', error);
-    }
-  };
-
-  const loadStations = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/stations`, getAxiosConfig());
-      setStations(response.data);
-    } catch (error) {
-      console.error('Lỗi tải trạm:', error);
-    }
-  };
-
-  const loadStats = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/freight/stats/summary`, getAxiosConfig());
-      setStats(response.data);
-    } catch (error) {
-      console.error('Lỗi tải thống kê:', error);
-    }
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!formData.time_slot_id || !formData.sender_customer_id || !formData.description) {
-      alert('Vui lòng điền đầy đủ thông tin bắt buộc!');
-      return;
-    }
-
-    try {
-      if (editingFreight) {
-        // Cập nhật
-        await axios.put(
-          `${API_URL}/freight/${editingFreight.id}`,
-          formData,
-          getAxiosConfig()
-        );
-        alert('Cập nhật hàng hóa thành công!');
-      } else {
-        // Tạo mới
-        await axios.post(`${API_URL}/freight`, formData, getAxiosConfig());
-        alert('Thêm hàng hóa thành công!');
+      setVehicleLoading(true);
+      const params = new URLSearchParams();
+      if (vehicleSearch.trim()) params.append('vehicle', vehicleSearch.trim());
+      if (vehicleDate) params.append('date', vehicleDate);
+      const response = await axios.get(`${API_URL}/freight/by-vehicle?${params.toString()}`, getAxiosConfig());
+      if (response.data.success) {
+        setVehicleData(response.data.vehicles || []);
       }
-
-      resetForm();
-      loadFreightList();
-      loadStats();
     } catch (error) {
-      console.error('Lỗi lưu hàng hóa:', error);
-      alert('Có lỗi xảy ra: ' + (error.response?.data?.error || error.message));
+      console.error('Lỗi tải hàng hóa theo xe:', error);
+      setVehicleData([]);
+    } finally {
+      setVehicleLoading(false);
     }
   };
 
-  const handleEdit = (freight) => {
-    setEditingFreight(freight);
-    setFormData({
-      time_slot_id: freight.time_slot_id,
-      sender_customer_id: freight.sender_customer_id,
-      receiver_name: freight.receiver_name || '',
-      receiver_phone: freight.receiver_phone || '',
-      receiver_address: freight.receiver_address || '',
-      pickup_station_id: freight.pickup_station_id || '',
-      delivery_station_id: freight.delivery_station_id || '',
-      description: freight.description,
-      weight: freight.weight || '',
-      size_length: freight.size_length || '',
-      size_width: freight.size_width || '',
-      size_height: freight.size_height || '',
-      quantity: freight.quantity,
-      freight_charge: freight.freight_charge,
-      cod_amount: freight.cod_amount || 0,
-      special_instructions: freight.special_instructions || ''
-    });
-    setShowAddForm(true);
-  };
+  // Auto-load on tab change
+  useEffect(() => {
+    if (activeTab === 'homnay') loadToday();
+    if (activeTab === 'tongquan') loadAll();
+    if (activeTab === 'theoxe') loadVehicleFreight();
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Bạn có chắc muốn xóa đơn hàng này?')) {
-      return;
-    }
+  // Reload tổng quan khi filter thay đổi
+  useEffect(() => {
+    if (activeTab === 'tongquan') loadAll();
+  }, [allFilters]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    try {
-      await axios.delete(`${API_URL}/freight/${id}`, getAxiosConfig());
-      alert('Xóa hàng hóa thành công!');
-      loadFreightList();
-      loadStats();
-    } catch (error) {
-      console.error('Lỗi xóa hàng hóa:', error);
-      alert('Có lỗi xảy ra: ' + (error.response?.data?.error || error.message));
-    }
-  };
+  // Reload vehicle khi đổi ngày hoặc chọn xe
+  useEffect(() => {
+    if (activeTab === 'theoxe') loadVehicleFreight();
+  }, [vehicleDate, vehicleSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleUpdateStatus = async (id, status) => {
-    try {
-      await axios.put(
-        `${API_URL}/freight/${id}/status`,
-        { status },
-        getAxiosConfig()
-      );
-      alert('Cập nhật trạng thái thành công!');
-      loadFreightList();
-      loadStats();
-    } catch (error) {
-      console.error('Lỗi cập nhật trạng thái:', error);
-      alert('Có lỗi xảy ra: ' + (error.response?.data?.error || error.message));
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      time_slot_id: '',
-      sender_customer_id: '',
-      receiver_name: '',
-      receiver_phone: '',
-      receiver_address: '',
-      pickup_station_id: '',
-      delivery_station_id: '',
-      description: '',
-      weight: '',
-      size_length: '',
-      size_width: '',
-      size_height: '',
-      quantity: 1,
-      freight_charge: 0,
-      cod_amount: 0,
-      special_instructions: ''
-    });
-    setEditingFreight(null);
-    setShowAddForm(false);
+  const handleRefresh = () => {
+    if (activeTab === 'homnay') loadToday();
+    else if (activeTab === 'tongquan') loadAll();
+    else loadVehicleFreight();
   };
 
   const getStatusColor = (status) => {
@@ -261,7 +139,7 @@ const HangHoaPage = () => {
 
   const getStatusText = (status) => {
     const texts = {
-      pending: 'Chờ lấy hàng',
+      pending: 'Chờ xử lý',
       picked_up: 'Đã lấy hàng',
       in_transit: 'Đang vận chuyển',
       delivered: 'Đã giao hàng',
@@ -270,6 +148,139 @@ const HangHoaPage = () => {
     return texts[status] || status;
   };
 
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch { return dateStr; }
+  };
+
+  // === Render stats cards ===
+  const renderStats = (stats) => {
+    if (!stats) return null;
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Tổng đơn</p>
+              <p className="text-2xl font-bold text-gray-800">{stats.total_freight || 0}</p>
+            </div>
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Chờ xử lý</p>
+              <p className="text-2xl font-bold text-yellow-600">{stats.pending || 0}</p>
+            </div>
+            <div className="p-3 bg-yellow-100 rounded-lg">
+              <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Đã giao</p>
+              <p className="text-2xl font-bold text-green-600">{stats.delivered || 0}</p>
+            </div>
+            <div className="p-3 bg-green-100 rounded-lg">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Doanh thu</p>
+              <p className="text-xl font-bold text-emerald-600">{new Intl.NumberFormat('vi-VN').format(stats.total_revenue || 0)}đ</p>
+            </div>
+            <div className="p-3 bg-emerald-100 rounded-lg">
+              <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // === Render freight table ===
+  const renderFreightTable = (list, isLoading) => (
+    <div className="bg-white rounded-lg shadow-md">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã đơn</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thời gian</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Người gửi</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Người nhận</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mô tả</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cước phí</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {isLoading ? (
+              <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                <div className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  Đang tải...
+                </div>
+              </td></tr>
+            ) : list.length === 0 ? (
+              <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                <div className="flex flex-col items-center">
+                  <svg className="w-12 h-12 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                  <p>Không có đơn hàng dọc đường nào</p>
+                </div>
+              </td></tr>
+            ) : (
+              list.map(freight => (
+                <tr key={freight.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                    <span className="font-mono bg-gray-100 px-2 py-1 rounded">{freight.id}</span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">{formatDateTime(freight.departure_time)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    <div className="font-medium">{freight.sender_name || 'N/A'}</div>
+                    <div className="text-xs text-gray-500">{freight.sender_phone || ''}</div>
+                    <div className="text-xs text-blue-600">{freight.sender_station || ''}</div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    <div className="font-medium">{freight.receiver_name || 'N/A'}</div>
+                    <div className="text-xs text-gray-500">{freight.receiver_phone || ''}</div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    <div className="max-w-xs truncate" title={freight.description}>{freight.description || 'Hàng hóa'}</div>
+                    {freight.special_instructions && <div className="text-xs text-orange-600 mt-1">{freight.special_instructions}</div>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs px-2 py-1 rounded-full font-semibold ${getStatusColor(freight.status)}`}>{getStatusText(freight.status)}</span>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <div className="font-semibold text-green-600">{new Intl.NumberFormat('vi-VN').format(freight.freight_charge || 0)}đ</div>
+                    {freight.cod_amount > 0 && <div className="text-xs text-orange-600">COD: {new Intl.NumberFormat('vi-VN').format(freight.cod_amount)}đ</div>}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      {!isLoading && list.length > 0 && (
+        <div className="px-4 py-3 bg-gray-50 border-t text-sm text-gray-600 text-center">
+          Hiển thị {list.length} đơn hàng
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -277,535 +288,182 @@ const HangHoaPage = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Quản Lý Hàng Hóa</h1>
-            <p className="text-sm text-gray-500 mt-1">Quản lý vận chuyển hàng hóa và kiện hàng</p>
+            <p className="text-sm text-gray-500 mt-1">Đơn hàng dọc đường từ hệ thống Nhập Hàng</p>
           </div>
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-semibold"
-          >
-            {showAddForm ? '✕ Đóng' : '+ Thêm Hàng Hóa'}
+          <button onClick={handleRefresh} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-semibold flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            Làm mới
           </button>
         </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mt-4 border-t pt-4">
+          {[
+            { key: 'homnay', label: '📦 Hôm Nay' },
+            { key: 'tongquan', label: '📊 Tổng Quan' },
+            { key: 'theoxe', label: '🚐 Theo Xe' },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${activeTab === tab.key ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Statistics Cards */}
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Tổng đơn hàng</p>
-                <p className="text-2xl font-bold text-gray-800">{stats.total_freight || 0}</p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Đang vận chuyển</p>
-                <p className="text-2xl font-bold text-purple-600">{stats.in_transit || 0}</p>
-              </div>
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Đã giao hàng</p>
-                <p className="text-2xl font-bold text-green-600">{stats.delivered || 0}</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Doanh thu</p>
-                <p className="text-xl font-bold text-emerald-600">
-                  {new Intl.NumberFormat('vi-VN').format(stats.total_revenue || 0)}đ
-                </p>
-              </div>
-              <div className="p-3 bg-emerald-100 rounded-lg">
-                <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* ===== TAB: HÔM NAY ===== */}
+      {activeTab === 'homnay' && (
+        <>
+          {renderStats(todayStats)}
+          {renderFreightTable(todayList, todayLoading)}
+        </>
       )}
 
-      {/* Add/Edit Form */}
-      {showAddForm && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">
-            {editingFreight ? 'Chỉnh Sửa Hàng Hóa' : 'Thêm Hàng Hóa Mới'}
-          </h2>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Chuyến xe */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Chuyến xe <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="time_slot_id"
-                value={formData.time_slot_id}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                <option value="">-- Chọn chuyến xe --</option>
-                {timeSlots.map(slot => (
-                  <option key={slot.id} value={slot.id}>
-                    {slot.time} - {slot.route || slot.code} ({slot.driver})
-                  </option>
-                ))}
-              </select>
-            </div>
+      {/* ===== TAB: TỔNG QUAN ===== */}
+      {activeTab === 'tongquan' && (
+        <>
+          {renderStats(allStats)}
 
-            {/* Người gửi */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Người gửi <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="sender_customer_id"
-                value={formData.sender_customer_id}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                <option value="">-- Chọn khách hàng --</option>
-                {customers.map(customer => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.customer_name} - {customer.phone}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Tên người nhận */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tên người nhận
-              </label>
-              <input
-                type="text"
-                name="receiver_name"
-                value={formData.receiver_name}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                placeholder="Nhập tên người nhận"
-              />
-            </div>
-
-            {/* SĐT người nhận */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                SĐT người nhận
-              </label>
-              <input
-                type="text"
-                name="receiver_phone"
-                value={formData.receiver_phone}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                placeholder="Nhập số điện thoại"
-              />
-            </div>
-
-            {/* Địa chỉ người nhận */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Địa chỉ người nhận
-              </label>
-              <input
-                type="text"
-                name="receiver_address"
-                value={formData.receiver_address}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                placeholder="Nhập địa chỉ giao hàng"
-              />
-            </div>
-
-            {/* Điểm lấy hàng */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Điểm lấy hàng
-              </label>
-              <select
-                name="pickup_station_id"
-                value={formData.pickup_station_id}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">-- Chọn trạm --</option>
-                {stations.map(station => (
-                  <option key={station.id} value={station.id}>
-                    {station.station_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Điểm giao hàng */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Điểm giao hàng
-              </label>
-              <select
-                name="delivery_station_id"
-                value={formData.delivery_station_id}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">-- Chọn trạm --</option>
-                {stations.map(station => (
-                  <option key={station.id} value={station.id}>
-                    {station.station_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Mô tả hàng hóa */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mô tả hàng hóa <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                rows="2"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                placeholder="Mô tả chi tiết hàng hóa"
-                required
-              />
-            </div>
-
-            {/* Cân nặng */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cân nặng (kg)
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                name="weight"
-                value={formData.weight}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                placeholder="0.0"
-              />
-            </div>
-
-            {/* Số lượng */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Số lượng kiện
-              </label>
-              <input
-                type="number"
-                name="quantity"
-                value={formData.quantity}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                min="1"
-              />
-            </div>
-
-            {/* Kích thước */}
-            <div className="grid grid-cols-3 gap-2">
+          {/* Filters */}
+          <div className="bg-white rounded-lg shadow-md p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Dài (cm)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  name="size_length"
-                  value={formData.size_length}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                  placeholder="0"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+                <select name="status" value={allFilters.status} onChange={e => setAllFilters(f => ({ ...f, status: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                  <option value="">Tất cả</option>
+                  <option value="pending">Chờ xử lý</option>
+                  <option value="picked_up">Đã lấy hàng</option>
+                  <option value="in_transit">Đang vận chuyển</option>
+                  <option value="delivered">Đã giao hàng</option>
+                  <option value="cancelled">Đã hủy</option>
+                </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Rộng (cm)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  name="size_width"
-                  value={formData.size_width}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                  placeholder="0"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Từ ngày</label>
+                <input type="date" value={allFilters.fromDate} onChange={e => setAllFilters(f => ({ ...f, fromDate: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Cao (cm)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  name="size_height"
-                  value={formData.size_height}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                  placeholder="0"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Đến ngày</label>
+                <input type="date" value={allFilters.toDate} onChange={e => setAllFilters(f => ({ ...f, toDate: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
               </div>
             </div>
+          </div>
 
-            {/* Cước phí */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cước phí (đ)
-              </label>
-              <input
-                type="number"
-                name="freight_charge"
-                value={formData.freight_charge}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                min="0"
-              />
-            </div>
-
-            {/* COD */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tiền thu hộ (COD)
-              </label>
-              <input
-                type="number"
-                name="cod_amount"
-                value={formData.cod_amount}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                min="0"
-              />
-            </div>
-
-            {/* Ghi chú đặc biệt */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ghi chú đặc biệt
-              </label>
-              <textarea
-                name="special_instructions"
-                value={formData.special_instructions}
-                onChange={handleInputChange}
-                rows="2"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                placeholder="Hướng dẫn đặc biệt cho việc giao hàng"
-              />
-            </div>
-
-            {/* Buttons */}
-            <div className="md:col-span-2 flex gap-2">
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition font-semibold"
-              >
-                {editingFreight ? 'Cập nhật' : 'Thêm mới'}
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500 transition"
-              >
-                Hủy
-              </button>
-            </div>
-          </form>
-        </div>
+          {renderFreightTable(allList, allLoading)}
+        </>
       )}
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow-md p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
-            <select
-              name="status"
-              value={filters.status}
-              onChange={handleFilterChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Tất cả</option>
-              <option value="pending">Chờ lấy hàng</option>
-              <option value="picked_up">Đã lấy hàng</option>
-              <option value="in_transit">Đang vận chuyển</option>
-              <option value="delivered">Đã giao hàng</option>
-              <option value="cancelled">Đã hủy</option>
-            </select>
+      {/* ===== TAB: THEO XE ===== */}
+      {activeTab === 'theoxe' && (
+        <>
+          <div className="bg-white rounded-lg shadow-md p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Biển số xe</label>
+                <select value={vehicleSearch} onChange={e => { setVehicleSearch(e.target.value); }} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                  <option value="">-- Tất cả xe --</option>
+                  {VEHICLE_LIST.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ngày</label>
+                <input type="date" value={vehicleDate} onChange={e => setVehicleDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="flex items-end">
+                <button onClick={loadVehicleFreight} className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-semibold">Làm mới</button>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Chuyến xe</label>
-            <select
-              name="timeSlotId"
-              value={filters.timeSlotId}
-              onChange={handleFilterChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Tất cả</option>
-              {timeSlots.map(slot => (
-                <option key={slot.id} value={slot.id}>
-                  {slot.time} - {slot.code}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Từ ngày</label>
-            <input
-              type="date"
-              name="fromDate"
-              value={filters.fromDate}
-              onChange={handleFilterChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Đến ngày</label>
-            <input
-              type="date"
-              name="toDate"
-              value={filters.toDate}
-              onChange={handleFilterChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Freight List */}
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Chuyến xe</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Người gửi</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Người nhận</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hàng hóa</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cước phí</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
-                    Đang tải...
-                  </td>
-                </tr>
-              ) : freightList.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
-                    Không có dữ liệu
-                  </td>
-                </tr>
-              ) : (
-                freightList.map(freight => (
-                  <tr key={freight.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">#{freight.id}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      <div>{freight.departure_time ? new Date(freight.departure_time).toLocaleString('vi-VN') : 'N/A'}</div>
-                      <div className="text-xs text-gray-500">{freight.vehicle_plate} - {freight.driver_name}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      <div className="font-medium">{freight.sender_name}</div>
-                      <div className="text-xs text-gray-500">{freight.sender_phone}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      <div className="font-medium">{freight.receiver_name || 'N/A'}</div>
-                      <div className="text-xs text-gray-500">{freight.receiver_phone || 'N/A'}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      <div className="max-w-xs truncate" title={freight.description}>
-                        {freight.description}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {freight.weight ? `${freight.weight}kg` : ''}
-                        {freight.quantity > 1 ? ` × ${freight.quantity} kiện` : ''}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <select
-                        value={freight.status}
-                        onChange={(e) => handleUpdateStatus(freight.id, e.target.value)}
-                        className={`text-xs px-2 py-1 rounded-full font-semibold ${getStatusColor(freight.status)}`}
-                      >
-                        <option value="pending">Chờ lấy hàng</option>
-                        <option value="picked_up">Đã lấy hàng</option>
-                        <option value="in_transit">Đang vận chuyển</option>
-                        <option value="delivered">Đã giao hàng</option>
-                        <option value="cancelled">Đã hủy</option>
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="font-semibold text-green-600">
-                        {new Intl.NumberFormat('vi-VN').format(freight.freight_charge)}đ
-                      </div>
-                      {freight.cod_amount > 0 && (
-                        <div className="text-xs text-orange-600">
-                          COD: {new Intl.NumberFormat('vi-VN').format(freight.cod_amount)}đ
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex gap-2 justify-center">
-                        <button
-                          onClick={() => handleEdit(freight)}
-                          className="px-2 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition text-xs"
-                          title="Sửa"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => handleDelete(freight.id)}
-                          className="px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition text-xs"
-                          title="Xóa"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          {vehicleLoading ? (
+            <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
+              <div className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Đang tải...
+              </div>
+            </div>
+          ) : vehicleData.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
+              <svg className="w-12 h-12 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+              </svg>
+              <p>Không tìm thấy hàng hóa theo xe</p>
+              <p className="text-sm text-gray-400 mt-1">Hàng hóa sẽ hiện khi bên Nhập Hàng gán biển số xe cho đơn hàng</p>
+            </div>
+          ) : (
+            vehicleData.map(veh => (
+              <div key={veh.vehicle} className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition" onClick={() => setExpandedVehicle(expandedVehicle === veh.vehicle ? null : veh.vehicle)}>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-800">{veh.vehicle}</h3>
+                      <p className="text-sm text-gray-500">{veh.totalOrders} đơn hàng</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500">Tổng cước</p>
+                      <p className="text-lg font-bold text-green-600">{new Intl.NumberFormat('vi-VN').format(veh.totalFreight)}đ</p>
+                    </div>
+                    <svg className={`w-5 h-5 text-gray-400 transition-transform ${expandedVehicle === veh.vehicle ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </div>
+                {expandedVehicle === veh.vehicle && (
+                  <div className="border-t">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Mã đơn</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Người gửi</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Người nhận</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Trạm đến</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Mô tả</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cước phí</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {veh.items.map(item => (
+                          <tr key={item.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 text-sm"><span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-xs">{item.id}</span></td>
+                            <td className="px-4 py-2 text-sm">
+                              <div className="font-medium">{item.sender_name || 'N/A'}</div>
+                              <div className="text-xs text-gray-500">{item.sender_phone || ''}</div>
+                              <div className="text-xs text-blue-600">{item.sender_station || ''}</div>
+                            </td>
+                            <td className="px-4 py-2 text-sm">
+                              <div className="font-medium">{item.receiver_name || 'N/A'}</div>
+                              <div className="text-xs text-gray-500">{item.receiver_phone || ''}</div>
+                            </td>
+                            <td className="px-4 py-2 text-sm text-gray-700">{item.delivery_station || 'N/A'}</td>
+                            <td className="px-4 py-2 text-sm text-gray-700"><div className="max-w-[200px] truncate">{item.description}</div></td>
+                            <td className="px-4 py-2">
+                              <span className={`text-xs px-2 py-1 rounded-full font-semibold ${getStatusColor(item.status === 'delivered' || item.delivery_status === 'delivered' ? 'delivered' : item.status === 'cancelled' ? 'cancelled' : 'pending')}`}>
+                                {getStatusText(item.status === 'delivered' || item.delivery_status === 'delivered' ? 'delivered' : item.status === 'cancelled' ? 'cancelled' : item.delivery_status === 'in_transit' ? 'in_transit' : 'pending')}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-sm font-semibold text-green-600">{new Intl.NumberFormat('vi-VN').format(item.freight_charge)}đ</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </>
+      )}
     </div>
   );
 };

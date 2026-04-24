@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { timeSlotAPI, bookingAPI, driverAPI, vehicleAPI, seatLockAPI } from '../services/api';
 import { useAuth } from './AuthContext';
 
@@ -25,11 +25,25 @@ export const BookingProvider = ({ children }) => {
   // Lấy thông tin user đăng nhập từ AuthContext
   const { user } = useAuth();
 
+  // Global toast
+  const [globalToast, setGlobalToast] = useState(null);
+  const showToast = useCallback((message, type = 'success') => {
+    setGlobalToast({ message, type });
+  }, []);
+
   // State cho ngày đang chọn (mặc định là hôm nay)
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
 
-  // State cho tuyến đường đang chọn (sẽ được RouteFilter set từ API)
-  const [selectedRoute, setSelectedRoute] = useState('');
+  // State cho tuyến đường đang chọn (lưu vào localStorage để giữ sau F5)
+  const [selectedRoute, setSelectedRoute] = useState(() => {
+    return localStorage.getItem('lastSelectedRoute') || '';
+  });
+
+  // Lưu selectedRoute vào localStorage mỗi khi thay đổi
+  const setSelectedRouteAndSave = (route) => {
+    localStorage.setItem('lastSelectedRoute', route);
+    setSelectedRoute(route);
+  };
 
   // State cho danh sách đặt vé
   const [bookings, setBookings] = useState([]);
@@ -83,36 +97,27 @@ export const BookingProvider = ({ children }) => {
     return matchDate && matchRoute;
   });
 
-  // Load dữ liệu ban đầu từ database
+  // Load dữ liệu ban đầu từ database (KHÔNG load tất cả timeslots - sẽ load theo date+route)
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
 
-        // Load tất cả dữ liệu song song
-        const [slotsData, bookingsData, driversData, vehiclesData] = await Promise.all([
-          timeSlotAPI.getAll(),
+        const [bookingsData, driversData, vehiclesData] = await Promise.all([
           bookingAPI.getAll(),
           driverAPI.getAll(),
           vehicleAPI.getAll(),
         ]);
 
-        setTimeSlots(slotsData);
         setBookings(bookingsData);
         setDrivers(driversData);
         setVehicles(vehiclesData);
 
-        // Lấy danh sách các ngày có trong database
-        const uniqueDates = [...new Set(slotsData.map(slot => slot.date))];
-
         console.log('✅ Đã load dữ liệu từ database:', {
-          timeSlots: slotsData.length,
           bookings: bookingsData.length,
           drivers: driversData.length,
           vehicles: vehiclesData.length,
         });
-        console.log('📅 Các ngày có timeslots trong database:', uniqueDates);
-        console.log('📅 Ngày hiện tại đang chọn:', formatDate(new Date()));
 
       } catch (error) {
         console.error('❌ Lỗi load dữ liệu:', error);
@@ -124,29 +129,34 @@ export const BookingProvider = ({ children }) => {
     loadData();
   }, []);
 
-  // Auto-refresh bookings VÀ timeslots - 30 giây để giảm tải cho Vercel
-  useEffect(() => {
-    const refreshData = async () => {
-      try {
-        // Refresh cả bookings VÀ timeslots để đảm bảo sync
-        const [bookingsData, slotsData] = await Promise.all([
-          bookingAPI.getAll(),
-          timeSlotAPI.getAll()
-        ]);
-        setBookings(bookingsData);
-        setTimeSlots(slotsData);
-        console.log(`🔄 Auto-refresh: ${bookingsData.length} bookings, ${slotsData.length} timeslots`);
-      } catch (error) {
-        console.error('❌ Lỗi refresh data:', error);
+  // Hàm refresh data thủ công (dùng cho nút Refresh và auto-refresh)
+  const refreshData = async () => {
+    try {
+      const bookingsData = await bookingAPI.getAll();
+      setBookings(bookingsData);
+
+      // Refresh timeslots cho date+route hiện tại nếu có
+      if (selectedDate && selectedRoute) {
+        const params = new URLSearchParams({ date: selectedDate, route: selectedRoute });
+        const res = await fetch(`https://vocucphuongmanage.vercel.app/api/tong-hop/timeslots?${params}`);
+        if (res.ok) {
+          const routeSlots = await res.json();
+          setTimeSlots(prev => {
+            const otherSlots = prev.filter(s => !(s.date === selectedDate && s.route === selectedRoute));
+            return sortTimeSlots([...otherSlots, ...routeSlots]);
+          });
+        }
       }
-    };
+    } catch (error) {
+      console.error('❌ Lỗi refresh data:', error);
+    }
+  };
 
-    // Refresh mỗi 30 giây (Vercel có cold start nên cần giảm tần suất)
+  // Auto-refresh bookings - 30 giây
+  useEffect(() => {
     const intervalId = setInterval(refreshData, 30000);
-
-    // Cleanup khi component unmount
     return () => clearInterval(intervalId);
-  }, []);
+  }, [selectedDate, selectedRoute]);
 
   // Auto-refresh seat locks - tăng lên 15 giây
   useEffect(() => {
@@ -187,123 +197,68 @@ export const BookingProvider = ({ children }) => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [currentUserName, user]);
 
-  // Tạo timeslots cho ngày mới và tuyến mới (template khác nhau cho từng tuyến)
+  // Tạo timeslots cho ngày + tuyến (gọi server, server tự tạo và trả về)
   const createTimeSlotsForDate = async (date, route) => {
     try {
       console.log(`🔄 Đang tạo timeslots cho ngày ${date}, tuyến ${route}...`);
 
-      // Lấy thông tin tuyến từ API để dùng giờ chạy đúng
-      let startTime = '05:30', endTime = '20:00', interval = 30;
-      try {
-        const res = await fetch('https://vocucphuongmanage.vercel.app/api/tong-hop/routes');
-        if (res.ok) {
-          const allRoutes = await res.json();
-          const matched = allRoutes.find(r => r.name === route);
-          if (matched) {
-            startTime = matched.operatingStart || startTime;
-            endTime = matched.operatingEnd || endTime;
-            interval = matched.intervalMinutes || interval;
-            console.log(`📋 Route API: ${route} → ${startTime}-${endTime}, ${interval}p/chuyến`);
-          }
-        }
-      } catch (e) {
-        console.warn('⚠️ Không lấy được route info từ API, dùng mặc định');
-      }
+      const params = new URLSearchParams({ date, route });
+      const res = await fetch(`https://vocucphuongmanage.vercel.app/api/tong-hop/timeslots?${params}`);
+      if (!res.ok) throw new Error('Lỗi tạo timeslots');
+      const routeSlots = await res.json();
 
-      // Fallback: detect hướng tuyến nếu không match API
-      const routeLower = route.toLowerCase();
-      const isFromLK = routeLower.startsWith('long khánh') || routeLower.startsWith('xuân lộc');
-      if (startTime === '05:30' && endTime === '20:00' && isFromLK) {
-        startTime = '03:30';
-        endTime = '18:00';
-      }
+      // Thay thế timeslots cho date+route này
+      setTimeSlots(prev => {
+        const otherSlots = prev.filter(s => !(s.date === date && s.route === route));
+        return sortTimeSlots([...otherSlots, ...routeSlots]);
+      });
 
-      // Generate time template từ startTime → endTime, mỗi interval phút
-      const timeTemplate = [];
-      const [startH, startM] = startTime.split(':').map(Number);
-      const [endH, endM] = endTime.split(':').map(Number);
-      let currentMinutes = startH * 60 + startM;
-      const endMinutes = endH * 60 + endM;
-      while (currentMinutes <= endMinutes) {
-        const h = String(Math.floor(currentMinutes / 60)).padStart(2, '0');
-        const m = String(currentMinutes % 60).padStart(2, '0');
-        timeTemplate.push(`${h}:${m}`);
-        currentMinutes += interval;
-      }
-      console.log(`📋 Generated ${timeTemplate.length} timeslots: ${startTime}-${endTime} (${interval}p) cho tuyến: ${route}`);
-
-      const newSlots = [];
-      for (const time of timeTemplate) {
-        const slotData = {
-          time: time,
-          date: date,
-          route: route,  // Thêm tuyến đường
-          type: 'Xe 28G',
-          code: null,  // Biển số trống
-          driver: null,  // Tên tài xế trống
-          phone: null,  // Số điện thoại trống
-        };
-
-        const createdSlot = await timeSlotAPI.create(slotData);
-        newSlots.push(createdSlot);
-      }
-
-      // Dùng functional update để tránh stale closure
-      setTimeSlots(prev => sortTimeSlots([...prev, ...newSlots]));
-      console.log(`✅ Đã tạo ${newSlots.length} timeslots cho ngày ${date}, tuyến ${route}`);
-      return newSlots;
+      console.log(`✅ Đã load ${routeSlots.length} timeslots cho ngày ${date}, tuyến ${route}`);
+      return routeSlots;
     } catch (error) {
       console.error('❌ Lỗi tạo timeslots:', error);
       throw error;
     }
   };
 
-  // Reset tất cả state khi chuyển ngày hoặc tuyến (để tránh hiển thị dữ liệu cũ)
+  // Khi chuyển ngày hoặc tuyến → LUÔN fetch timeslots từ server (server tự tạo nếu chưa có)
   useEffect(() => {
     const handleDateOrRouteChange = async () => {
-      // Bỏ qua nếu route chưa được set (đợi RouteFilter load từ API)
-      if (!selectedRoute) return;
+      if (!selectedRoute || loading) return;
 
       console.log(`🔄 Đang chuyển sang ngày ${selectedDate}, tuyến ${selectedRoute}...`);
 
-      // Reset các state liên quan đến việc đặt vé
+      // Reset các state liên quan
       setSelectedSeatNumber(null);
       setShowPassengerForm(false);
       setIsSlotSelected(false);
       setSelectedTrip(null);
 
-      // Sau khi reset, kiểm tra xem ngày và tuyến này có timeslots chưa
-      if (!loading) {
-        // Lọc timeslots của ngày và tuyến hiện tại
-        const slotsForDateAndRoute = timeSlots.filter(slot =>
-          slot.date === selectedDate && slot.route === selectedRoute
-        );
+      try {
+        const params = new URLSearchParams({ date: selectedDate, route: selectedRoute });
+        const res = await fetch(`https://vocucphuongmanage.vercel.app/api/tong-hop/timeslots?${params}`);
+        if (!res.ok) throw new Error('Lỗi fetch timeslots');
+        const routeSlots = await res.json();
 
-        if (slotsForDateAndRoute.length > 0) {
-          // Đã có timeslots, chọn khung giờ đầu tiên (sorted by time)
-          const sortedSlots = sortTimeSlots(slotsForDateAndRoute);
-          setSelectedTrip(sortedSlots[0]);
+        // Thay thế timeslots cho date+route này, giữ nguyên các date/route khác
+        setTimeSlots(prev => {
+          const otherSlots = prev.filter(s => !(s.date === selectedDate && s.route === selectedRoute));
+          return sortTimeSlots([...otherSlots, ...routeSlots]);
+        });
+
+        if (routeSlots.length > 0) {
+          const sorted = sortTimeSlots(routeSlots);
+          setSelectedTrip(sorted[0]);
           setIsSlotSelected(true);
-          console.log(`✅ Đã chuyển sang ngày ${selectedDate}, tuyến ${selectedRoute}, có ${slotsForDateAndRoute.length} timeslots`);
-        } else {
-          // Chưa có timeslots cho ngày/tuyến này -> TỰ ĐỘNG TẠO
-          console.log(`📅 Ngày ${selectedDate}, tuyến ${selectedRoute} chưa có timeslots. Đang tạo tự động...`);
-          try {
-            const newSlots = await createTimeSlotsForDate(selectedDate, selectedRoute);
-            if (newSlots && newSlots.length > 0) {
-              const sortedNewSlots = sortTimeSlots(newSlots);
-              setSelectedTrip(sortedNewSlots[0]);
-              setIsSlotSelected(true);
-            }
-          } catch (error) {
-            console.error('❌ Lỗi tạo timeslots tự động:', error);
-          }
+          console.log(`✅ Loaded ${routeSlots.length} timeslots cho ${selectedDate} - ${selectedRoute}`);
         }
+      } catch (error) {
+        console.error('❌ Lỗi load timeslots:', error);
       }
     };
 
     handleDateOrRouteChange();
-  }, [selectedDate, selectedRoute, loading]); // Bỏ timeSlots khỏi dependencies để tránh vòng lặp
+  }, [selectedDate, selectedRoute, loading]);
 
   // Thêm booking mới
   const addBooking = async (bookingData) => {
@@ -559,7 +514,8 @@ export const BookingProvider = ({ children }) => {
     selectedDate,
     setSelectedDate,
     selectedRoute,
-    setSelectedRoute,
+    setSelectedRoute: setSelectedRouteAndSave,
+    refreshData,
     bookings,
     currentDayBookings,
     selectedTrip,
@@ -599,6 +555,10 @@ export const BookingProvider = ({ children }) => {
     // Transfer booking functions
     transferQueue,
     setTransferQueue,
+    // Global toast
+    globalToast,
+    setGlobalToast,
+    showToast,
   };
 
   return (

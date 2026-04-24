@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useBooking } from '../context/BookingContext';
+import ConfirmModal from './ConfirmModal';
+import SearchableSelect from './SearchableSelect';
+import ToastNotification from './ToastNotification';
 
 const TimeSlotsNew = () => {
   const {
@@ -11,6 +14,13 @@ const TimeSlotsNew = () => {
   const [editingSlot, setEditingSlot] = useState(null);
   const [isCreatingSlots, setIsCreatingSlots] = useState(false);
   const [editData, setEditData] = useState({});
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false });
+  const [toast, setToast] = useState(null);
+
+  const showToast = useCallback((message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  }, []);
   const [showAddSlotModal, setShowAddSlotModal] = useState(false);
   const [newSlotData, setNewSlotData] = useState({
     time: '06:00',
@@ -33,7 +43,22 @@ const TimeSlotsNew = () => {
   };
 
   // Kiểm tra xe đã xuất bến chưa
+  // - Ngày đã qua: tất cả đều đã xuất bến
+  // - Ngày hôm nay: chỉ khung giờ đã qua mới hiện
+  // - Ngày tương lai: không hiện
   const isDeparted = (timeSlot) => {
+    if (selectedDate) {
+      const today = new Date();
+      const todayStr = `${String(today.getDate()).padStart(2,'0')}-${String(today.getMonth()+1).padStart(2,'0')}-${today.getFullYear()}`;
+      // Parse selectedDate (DD-MM-YYYY)
+      const [dd, mm, yyyy] = selectedDate.split('-').map(Number);
+      const selectedDateObj = new Date(yyyy, mm - 1, dd);
+      const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+      if (selectedDateObj < todayDate) return true;   // Ngày đã qua → tất cả đã xuất bến
+      if (selectedDateObj > todayDate) return false;   // Ngày tương lai → chưa xuất bến
+    }
+    // Ngày hôm nay → so sánh giờ
     const [hours, minutes] = timeSlot.split(':').map(Number);
     const slotTimeInMinutes = hours * 60 + minutes;
     return getCurrentTime() > slotTimeInMinutes;
@@ -64,10 +89,7 @@ const TimeSlotsNew = () => {
     const slotId = editData.id;
     const newTime = editData.time;
 
-    // Cập nhật giờ
     changeTimeSlotTime(slotId, newTime);
-
-    // Cập nhật thông tin khác
     updateTimeSlot(slotId, {
       code: editData.code,
       driver: editData.driver,
@@ -75,12 +97,20 @@ const TimeSlotsNew = () => {
       type: editData.type,
     });
 
+    // Toast thông báo chi tiết
+    const parts = [];
+    if (editData.type) parts.push(`Xe: ${editData.type}`);
+    if (editData.driver) parts.push(`Tài xế: ${editData.driver}`);
+    const detail = parts.length > 0 ? ` — ${parts.join(', ')}` : '';
+    showToast(`Đã cập nhật khung giờ ${newTime} tuyến ${selectedRoute}${detail}`, 'success');
+
     setEditingSlot(null);
     setEditData({});
   };
 
   const handleAddNewSlot = () => {
     addNewTimeSlot(newSlotData);
+    showToast(`Đã thêm khung giờ ${newSlotData.time} tuyến ${selectedRoute}${newSlotData.type ? ` — Xe: ${newSlotData.type}` : ''}`, 'success');
     setShowAddSlotModal(false);
     setNewSlotData({
       time: '06:00',
@@ -92,12 +122,22 @@ const TimeSlotsNew = () => {
   };
 
   const handleDeleteSlot = (slotId, time) => {
-    if (window.confirm(`Bạn có chắc muốn xóa khung giờ ${time}?`)) {
-      deleteTimeSlot(slotId);
-      if (selectedTrip.id === slotId) {
-        setIsSlotSelected(false);
+    setConfirmModal({
+      isOpen: true,
+      title: 'Xóa khung giờ',
+      message: `Bạn có chắc muốn xóa khung giờ ${time}?`,
+      type: 'danger',
+      danger: true,
+      confirmText: 'Xóa',
+      onConfirm: () => {
+        setConfirmModal(m => ({ ...m, isOpen: false }));
+        deleteTimeSlot(slotId);
+        showToast(`Đã xóa khung giờ ${time} tuyến ${selectedRoute}`, 'warning');
+        if (selectedTrip.id === slotId) {
+          setIsSlotSelected(false);
+        }
       }
-    }
+    });
   };
 
   const handleCancelEdit = () => {
@@ -134,6 +174,7 @@ const TimeSlotsNew = () => {
 
   return (
     <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-3">
+      <ToastNotification toast={toast} onClose={() => setToast(null)} />
       {/* Header thông báo */}
       <div className="mb-3 p-2.5 bg-sky-50 border-l-4 border-sky-500 rounded-r">
         <p className="text-xs font-semibold text-sky-800">
@@ -216,7 +257,7 @@ const TimeSlotsNew = () => {
 
                 {/* Nội dung chính - hiển thị ngang */}
                 <div className="flex-1 px-3 py-2">
-                  {/* Dòng 1: Giờ | Số vé/Tổng | Loại xe */}
+                  {/* Dòng 1: Giờ | Số vé/Tổng */}
                   <div className="flex items-center justify-between gap-2">
                     <span className={`text-lg font-bold ${isSelected ? 'text-sky-600' : 'text-gray-800'}`}>
                       {slot.time}
@@ -224,29 +265,26 @@ const TimeSlotsNew = () => {
                     <span className={`text-sm font-semibold ${bookingsCount === 28 ? 'text-emerald-600' : hasBookings ? 'text-amber-600' : 'text-gray-500'}`}>
                       {bookingsCount}/{28}
                     </span>
-                    {slot.type && (
-                      <span className="text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
-                        {slot.type}
-                      </span>
-                    )}
                   </div>
 
-                  {/* Dòng 2: Biển số xe + Tài xế (ngang hàng) */}
-                  <div className="flex items-center gap-2 mt-1.5">
-                    {slot.code && (
-                      <span className="text-sm font-bold text-gray-800">
-                        {slot.code}
-                      </span>
-                    )}
-                    {slot.code && slot.driver && (
-                      <span className="text-gray-400">|</span>
-                    )}
-                    {slot.driver && (
-                      <span className="text-sm font-semibold text-sky-700 truncate">
-                        {slot.driver}
-                      </span>
-                    )}
-                  </div>
+                  {/* Dòng 2: Biển số + Tài xế theo từng cặp */}
+                  {(() => {
+                    const plates = slot.code ? slot.code.split(',').map(s => s.trim()).filter(Boolean) : [];
+                    const driverArr = slot.driver ? slot.driver.split(',').map(s => s.trim()).filter(Boolean) : [];
+                    const maxLen = Math.max(plates.length, driverArr.length);
+                    if (maxLen === 0) return null;
+                    return (
+                      <div className="mt-1 space-y-0.5">
+                        {Array.from({ length: maxLen }).map((_, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-xs leading-tight">
+                            {plates[i] && <span className="font-bold text-gray-800 bg-amber-50 border border-amber-200 px-1 rounded">{plates[i]}</span>}
+                            {plates[i] && driverArr[i] && <span className="text-gray-400">—</span>}
+                            {driverArr[i] && <span className="font-medium text-sky-700">{driverArr[i]}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
 
                   {/* Badge đã xuất bến */}
                   {departed && (
@@ -311,42 +349,19 @@ const TimeSlotsNew = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Biển số xe
                 </label>
-                <input
-                  type="text"
-                  list="edit-vehicles-list"
+                <SearchableSelect
+                  options={vehiclesList.map(v => ({ ...v, label: v.type || v.code || '', sub: v.code || '' }))}
                   value={editData.code || ''}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setEditData({ ...editData, code: value });
-                    // Tự động cập nhật loại xe nếu chọn từ danh sách
-                    const vehicle = vehiclesList.find(v => v.code === value);
-                    if (vehicle) {
-                      setEditData(prev => ({ ...prev, type: vehicle.type }));
+                  onChange={(v) => {
+                    if (v) {
+                      setEditData(prev => ({ ...prev, code: v.type || v.code || '', type: v.type || '' }));
+                    } else {
+                      setEditData(prev => ({ ...prev, code: '', type: '' }));
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
-                  placeholder="Nhập biển số xe"
-                />
-                <datalist id="edit-vehicles-list">
-                  {vehiclesList.map(vehicle => (
-                    <option key={vehicle.id} value={vehicle.code}>
-                      {vehicle.type}
-                    </option>
-                  ))}
-                </datalist>
-              </div>
-
-              {/* Loại xe */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Loại xe
-                </label>
-                <input
-                  type="text"
-                  value={editData.type || ''}
-                  onChange={(e) => setEditData({ ...editData, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
-                  placeholder="Nhập loại xe"
+                  placeholder="Chọn biển số xe"
+                  displayKey="label"
+                  subKey="sub"
                 />
               </div>
 
@@ -355,43 +370,21 @@ const TimeSlotsNew = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tên tài xế
                 </label>
-                <input
-                  type="text"
-                  list="edit-drivers-list"
+                <SearchableSelect
+                  options={driversList}
                   value={editData.driver || ''}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setEditData({ ...editData, driver: value });
-                    // Tự động cập nhật số điện thoại nếu chọn từ danh sách
-                    const driver = driversList.find(d => d.name === value);
-                    if (driver) {
-                      setEditData(prev => ({ ...prev, phone: driver.phone }));
+                  onChange={(d) => {
+                    if (d) {
+                      setEditData(prev => ({ ...prev, driver: d.name, phone: d.phone }));
+                    } else {
+                      setEditData(prev => ({ ...prev, driver: '', phone: '' }));
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
-                  placeholder="Nhập tên tài xế"
+                  placeholder="Chọn tài xế"
+                  displayKey="name"
+                  subKey="phone"
                 />
-                <datalist id="edit-drivers-list">
-                  {driversList.map(driver => (
-                    <option key={driver.id} value={driver.name}>
-                      {driver.phone}
-                    </option>
-                  ))}
-                </datalist>
-              </div>
-
-              {/* Số điện thoại */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Số điện thoại
-                </label>
-                <input
-                  type="text"
-                  value={editData.phone || ''}
-                  onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
-                  placeholder="Nhập số điện thoại"
-                />
+                {editData.phone && <p className="text-xs text-gray-500 mt-1">SĐT: {editData.phone}</p>}
               </div>
             </div>
 
@@ -450,42 +443,19 @@ const TimeSlotsNew = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Biển số xe
                 </label>
-                <input
-                  type="text"
-                  list="add-vehicles-list"
+                <SearchableSelect
+                  options={vehiclesList.map(v => ({ ...v, label: v.type || v.code || '', sub: v.code || '' }))}
                   value={newSlotData.code}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setNewSlotData({ ...newSlotData, code: value });
-                    // Tự động cập nhật loại xe nếu chọn từ danh sách
-                    const vehicle = vehiclesList.find(v => v.code === value);
-                    if (vehicle) {
-                      setNewSlotData(prev => ({ ...prev, type: vehicle.type }));
+                  onChange={(v) => {
+                    if (v) {
+                      setNewSlotData(prev => ({ ...prev, code: v.type || v.code || '', type: v.type || '' }));
+                    } else {
+                      setNewSlotData(prev => ({ ...prev, code: '', type: '' }));
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
-                  placeholder="Nhập biển số xe"
-                />
-                <datalist id="add-vehicles-list">
-                  {vehiclesList.map(vehicle => (
-                    <option key={vehicle.id} value={vehicle.code}>
-                      {vehicle.type}
-                    </option>
-                  ))}
-                </datalist>
-              </div>
-
-              {/* Loại xe */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Loại xe
-                </label>
-                <input
-                  type="text"
-                  value={newSlotData.type}
-                  onChange={(e) => setNewSlotData({ ...newSlotData, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
-                  placeholder="Nhập loại xe"
+                  placeholder="Chọn biển số xe"
+                  displayKey="label"
+                  subKey="sub"
                 />
               </div>
 
@@ -494,43 +464,21 @@ const TimeSlotsNew = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tên tài xế
                 </label>
-                <input
-                  type="text"
-                  list="add-drivers-list"
+                <SearchableSelect
+                  options={driversList}
                   value={newSlotData.driver}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setNewSlotData({ ...newSlotData, driver: value });
-                    // Tự động cập nhật số điện thoại nếu chọn từ danh sách
-                    const driver = driversList.find(d => d.name === value);
-                    if (driver) {
-                      setNewSlotData(prev => ({ ...prev, phone: driver.phone }));
+                  onChange={(d) => {
+                    if (d) {
+                      setNewSlotData(prev => ({ ...prev, driver: d.name, phone: d.phone }));
+                    } else {
+                      setNewSlotData(prev => ({ ...prev, driver: '', phone: '' }));
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
-                  placeholder="Nhập tên tài xế"
+                  placeholder="Chọn tài xế"
+                  displayKey="name"
+                  subKey="phone"
                 />
-                <datalist id="add-drivers-list">
-                  {driversList.map(driver => (
-                    <option key={driver.id} value={driver.name}>
-                      {driver.phone}
-                    </option>
-                  ))}
-                </datalist>
-              </div>
-
-              {/* Số điện thoại */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Số điện thoại
-                </label>
-                <input
-                  type="text"
-                  value={newSlotData.phone}
-                  onChange={(e) => setNewSlotData({ ...newSlotData, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition"
-                  placeholder="Nhập số điện thoại"
-                />
+                {newSlotData.phone && <p className="text-xs text-gray-500 mt-1">SĐT: {newSlotData.phone}</p>}
               </div>
             </div>
 
@@ -552,6 +500,16 @@ const TimeSlotsNew = () => {
           </div>
         </div>
       )}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        danger={confirmModal.danger}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(m => ({ ...m, isOpen: false }))}
+      />
     </div>
   );
 };

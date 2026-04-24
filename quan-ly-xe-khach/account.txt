@@ -1,3 +1,12 @@
 admin / admin123 → Full quyền
 quanly1 / admin123 → Quản lý
 nhanvien1 / admin123 → Nhân viên
+
+cd /Users/lequangminh/VoCucPhuong_TongHop/Vo_Cuc_Phuong/Cong_Ty_TNHH_VoCucPhuong_NhapHang-2/backend
+npm start
+Terminal 2 - TongHop Backend (port 5000):
+cd /Users/lequangminh/VoCucPhuong_TongHop/Vo_Cuc_Phuong/Cong_Ty_TNHH_VoCucPhuong_TongHop/quan-ly-xe-khach-backend
+npm start
+Terminal 3 - TongHop Frontend (port 3000):
+cd /Users/lequangminh/VoCucPhuong_TongHop/Vo_Cuc_Phuong/Cong_Ty_TNHH_VoCucPhuong_TongHop/quan-ly-xe-khach
+npm start
