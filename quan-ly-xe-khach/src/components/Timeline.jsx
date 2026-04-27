@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useBooking } from '../context/BookingContext';
-import { useAuth } from '../context/AuthContext';
-import VehicleDriverManagement from './VehicleDriverManagement';
+
+const formatPlate = (input) => {
+  if (!input) return '';
+  const clean = input.toString().replace(/[\s\-]/g, '').toUpperCase();
+  const match = clean.match(/^(\d{2}[A-Z]{1,2})(\d+)$/);
+  if (match) return `${match[1]}-${match[2]}`;
+  return clean;
+};
 
 const Timeline = () => {
   const { selectedTrip, selectedDate, selectedRoute, bookings, updateTimeSlot, changeTimeSlotTime, drivers, vehicles, showToast } = useBooking();
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
-  const [showVehicleDriverModal, setShowVehicleDriverModal] = useState(false);
 
   // Sử dụng danh sách tài xế và xe từ database
   const driversList = drivers;
@@ -213,8 +216,9 @@ const Timeline = () => {
 
   // Thêm biển số từ dropdown (ưu tiên dùng type = biển số thực)
   const addVehicleFromList = (vehicle) => {
-    const vPlate = vehicle.type || vehicle.code || vehicle.plate || '';
-    if (vPlate && !vehicleCodes.includes(vPlate)) {
+    const raw = vehicle.type || vehicle.code || vehicle.plate || '';
+    const vPlate = formatPlate(raw);
+    if (vPlate && !vehicleCodes.some(c => formatPlate(c) === vPlate)) {
       const updated = [...vehicleCodes, vPlate];
       setVehicleCodes(updated);
       updateTimeSlot(selectedTrip.id, { code: updated.join(', ') });
@@ -253,10 +257,12 @@ const Timeline = () => {
   };
 
   // Lọc danh sách
-  const filteredVehicles = vehiclesList.filter(v =>
-    (v.code || '').toLowerCase().includes(vehicleSearch.toLowerCase()) ||
-    (v.type || '').toLowerCase().includes(vehicleSearch.toLowerCase())
-  );
+  const normSearch = (s) => (s || '').toString().replace(/[\s\-]/g, '').toLowerCase();
+  const filteredVehicles = vehiclesList.filter(v => {
+    const q = normSearch(vehicleSearch);
+    if (!q) return true;
+    return normSearch(v.code).includes(q) || normSearch(v.type).includes(q);
+  });
   const filteredDrivers = driversList.filter(d =>
     (d.name || '').toLowerCase().includes(driverSearch.toLowerCase()) ||
     (d.phone || '').toLowerCase().includes(driverSearch.toLowerCase())
@@ -274,16 +280,9 @@ const Timeline = () => {
           {/* Biển số - Cho phép nhiều, chỉ chọn từ DB */}
           <div className="flex items-center gap-2 relative" ref={vehicleRef}>
             <span className="font-semibold">Biển số:</span>
-            {isAdmin && (
-              <button
-                onClick={() => setShowVehicleDriverModal(true)}
-                className="text-xs px-2 py-0.5 text-amber-600 border border-amber-300 rounded hover:bg-amber-50 transition"
-                title="Quản lý xe & tài xế"
-              >⚙ Quản lý</button>
-            )}
             {vehicleCodes.map((code, idx) => (
               <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 border border-amber-400 rounded text-sm font-bold">
-                {code}
+                {formatPlate(code)}
                 <button onClick={() => removeVehicle(code)} className="text-amber-600 hover:text-red-500 font-bold text-xs">×</button>
               </span>
             ))}
@@ -304,13 +303,17 @@ const Timeline = () => {
                   ) : filteredVehicles.map(v => {
                     const vCode = v.code || v.plate || '';
                     const vPlate = v.type || vCode;
-                    const selected = vehicleCodes.includes(vPlate) || vehicleCodes.includes(vCode);
+                    const plate = formatPlate(vPlate);
+                    const parts = plate.split('-');
+                    const provinceCode = parts[0] || plate;
+                    const plateNum = parts[1] || '';
+                    const selected = vehicleCodes.some(c => formatPlate(c) === plate);
                     return (
                       <div key={v.id} onClick={() => addVehicleFromList(v)}
                         className={`px-4 py-2.5 text-base cursor-pointer flex items-center justify-between hover:bg-amber-50 ${selected ? 'text-amber-600 font-semibold bg-amber-50' : 'text-gray-700'}`}>
-                        <div>
-                          <span className="font-bold text-base">{v.type || vCode}</span>
-                          {v.code && <span className="text-xs text-gray-400 ml-2">({v.code})</span>}
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block bg-amber-100 text-amber-800 font-bold text-xs px-1.5 py-0.5 rounded">{provinceCode}</span>
+                          <span className="font-mono font-bold">{plateNum || '—'}</span>
                         </div>
                         {selected && <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
                       </div>
@@ -453,10 +456,6 @@ const Timeline = () => {
         </div>
       </div>
     </div>
-
-    {showVehicleDriverModal && (
-      <VehicleDriverManagement onClose={() => setShowVehicleDriverModal(false)} />
-    )}
     </>
   );
 };
