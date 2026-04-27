@@ -10,7 +10,7 @@ const formatPlate = (input) => {
 };
 
 const Timeline = () => {
-  const { selectedTrip, selectedDate, selectedRoute, bookings, updateTimeSlot, changeTimeSlotTime, drivers, vehicles, showToast } = useBooking();
+  const { selectedTrip, selectedDate, selectedRoute, bookings, updateTimeSlot, changeTimeSlotTime, drivers, vehicles, showToast, broadcastChange } = useBooking();
 
   // Sử dụng danh sách tài xế và xe từ database
   const driversList = drivers;
@@ -222,7 +222,9 @@ const Timeline = () => {
       const updated = [...vehicleCodes, vPlate];
       setVehicleCodes(updated);
       updateTimeSlot(selectedTrip.id, { code: updated.join(', ') });
-      showToast(`Đã thêm xe ${vPlate} vào chuyến ${selectedTrip?.time} tuyến ${selectedRoute}`, 'success');
+      const msg = `Đã thêm xe ${vPlate} vào chuyến ${selectedTrip?.time} tuyến ${selectedRoute}`;
+      showToast(msg, 'success');
+      broadcastChange?.(selectedRoute, msg, 'success');
     }
     setShowVehicleDropdown(false);
     setVehicleSearch('');
@@ -233,7 +235,9 @@ const Timeline = () => {
     const updated = vehicleCodes.filter(c => c !== code);
     setVehicleCodes(updated);
     updateTimeSlot(selectedTrip.id, { code: updated.join(', ') });
-    showToast(`Đã xóa xe ${code} khỏi chuyến ${selectedTrip?.time} tuyến ${selectedRoute}`, 'warning');
+    const msg = `Đã xóa xe ${code} khỏi chuyến ${selectedTrip?.time} tuyến ${selectedRoute}`;
+    showToast(msg, 'warning');
+    broadcastChange?.(selectedRoute, msg, 'warning');
   };
 
   // Thêm tài xế từ dropdown
@@ -242,7 +246,9 @@ const Timeline = () => {
       const updated = [...driverNames, driver.name];
       setDriverNames(updated);
       updateTimeSlot(selectedTrip.id, { driver: updated.join(', ') });
-      showToast(`Đã thêm tài xế ${driver.name} vào chuyến ${selectedTrip?.time} tuyến ${selectedRoute}`, 'success');
+      const msg = `Đã thêm tài xế ${driver.name} vào chuyến ${selectedTrip?.time} tuyến ${selectedRoute}`;
+      showToast(msg, 'success');
+      broadcastChange?.(selectedRoute, msg, 'success');
     }
     setShowDriverDropdown(false);
     setDriverSearch('');
@@ -253,7 +259,9 @@ const Timeline = () => {
     const updated = driverNames.filter(n => n !== name);
     setDriverNames(updated);
     updateTimeSlot(selectedTrip.id, { driver: updated.join(', ') });
-    showToast(`Đã xóa tài xế ${name} khỏi chuyến ${selectedTrip?.time} tuyến ${selectedRoute}`, 'warning');
+    const msg = `Đã xóa tài xế ${name} khỏi chuyến ${selectedTrip?.time} tuyến ${selectedRoute}`;
+    showToast(msg, 'warning');
+    broadcastChange?.(selectedRoute, msg, 'warning');
   };
 
   // Lọc danh sách

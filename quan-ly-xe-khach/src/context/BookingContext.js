@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { timeSlotAPI, bookingAPI, driverAPI, vehicleAPI, seatLockAPI } from '../services/api';
 import { useAuth } from './AuthContext';
 
@@ -157,6 +157,36 @@ export const BookingProvider = ({ children }) => {
     const intervalId = setInterval(refreshData, 30000);
     return () => clearInterval(intervalId);
   }, [selectedDate, selectedRoute]);
+
+  // ===== Cross-tab broadcast (cùng route → đồng bộ thông báo + refresh) =====
+  const channelRef = useRef(null);
+  const tabIdRef = useRef(Math.random().toString(36).slice(2));
+  const selectedRouteRef = useRef(selectedRoute);
+  useEffect(() => { selectedRouteRef.current = selectedRoute; }, [selectedRoute]);
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return;
+    const ch = new BroadcastChannel('vcp-route-sync');
+    channelRef.current = ch;
+    ch.onmessage = (ev) => {
+      const msg = ev.data || {};
+      if (!msg || msg.from === tabIdRef.current) return;
+      if (msg.route && msg.route !== selectedRouteRef.current) return;
+      if (msg.message) showToast(msg.message, msg.type || 'success');
+      refreshData();
+    };
+    return () => ch.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const broadcastChange = useCallback((route, message, type = 'success') => {
+    if (!channelRef.current) return;
+    try {
+      channelRef.current.postMessage({ from: tabIdRef.current, route, message, type, ts: Date.now() });
+    } catch (e) {
+      console.warn('broadcastChange failed:', e);
+    }
+  }, []);
 
   // Auto-refresh seat locks - tăng lên 15 giây
   useEffect(() => {
@@ -559,6 +589,8 @@ export const BookingProvider = ({ children }) => {
     globalToast,
     setGlobalToast,
     showToast,
+    // Cross-tab sync
+    broadcastChange,
   };
 
   return (
