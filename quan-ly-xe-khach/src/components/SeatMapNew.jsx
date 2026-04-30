@@ -550,22 +550,22 @@ const SeatMapNew = () => {
 
                 // Xác định style cho card — đọc trực tiếp từ DB (qua booking data)
                 const isPrinted = hasPassenger && !!passenger.printed;
-                let cardClass = 'border-slate-800 bg-white';
+                let cardClass = 'border-slate-200 bg-white shadow-sm';
                 if (hasPassenger && isTransferMode) {
                   const inQueue = transferQueue.find(b => b.id === passenger.id);
                   if (inQueue) {
-                    cardClass = 'border-amber-500 bg-amber-50 ring-2 ring-amber-300';
+                    cardClass = 'border-amber-400 bg-amber-50 ring-2 ring-amber-300 shadow-md';
                   } else {
-                    cardClass = isPrinted ? 'border-slate-800 bg-slate-100' : 'border-slate-800 bg-blue-50';
+                    cardClass = isPrinted ? 'border-slate-300 bg-slate-50 shadow-sm' : 'border-blue-200 bg-blue-50 shadow-sm';
                   }
                 } else if (hasPassenger) {
-                  cardClass = isPrinted ? 'border-slate-800 bg-slate-100' : 'border-slate-800 bg-blue-50';
+                  cardClass = isPrinted ? 'border-slate-300 bg-slate-50 shadow-sm' : 'border-blue-200 bg-blue-50 shadow-sm';
                 } else if (isLocked) {
-                  cardClass = 'border-slate-800 bg-slate-200';
+                  cardClass = 'border-slate-300 bg-slate-100';
                 } else if (isLockedByMe) {
-                  cardClass = 'border-blue-500 bg-blue-100 ring-2 ring-blue-300';
+                  cardClass = 'border-blue-400 bg-blue-50 ring-2 ring-blue-200 shadow-md';
                 } else if (isTransferMode) {
-                  cardClass = 'border-indigo-400 bg-indigo-50 border-dashed';
+                  cardClass = 'border-indigo-300 bg-indigo-50/60 border-dashed';
                 }
 
                 // Tính progress thanh toán cho thanh dưới đáy card
@@ -589,7 +589,7 @@ const SeatMapNew = () => {
                 return (
                   <div
                     key={seatNum}
-                    className={`relative border-2 rounded-md p-3 pb-4 hover:shadow-md transition ${cardClass}`}
+                    className={`relative border rounded-xl p-3 pb-5 hover:shadow-md transition ${cardClass}`}
                   >
                     {hasPassenger ? (
                       <>

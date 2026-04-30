@@ -249,7 +249,7 @@ Body: {
 
 ## 👨‍💻 PHÁT TRIỂN BỞI
 
-Lê Quang Minh - Công Ty TNHH Vô Cực Phương
+Lê Quang Minh - Công Ty TNHH Võ Cúc Phương
 
 ## 📞 LIÊN HỆ
 

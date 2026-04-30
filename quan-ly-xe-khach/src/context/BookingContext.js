@@ -152,11 +152,99 @@ export const BookingProvider = ({ children }) => {
     }
   };
 
-  // Auto-refresh bookings - 30 giây
+  // Auto-refresh bookings - 30 giây (full reload, để bắt được DELETE)
   useEffect(() => {
     const intervalId = setInterval(refreshData, 30000);
     return () => clearInterval(intervalId);
   }, [selectedDate, selectedRoute]);
+
+  // ===== Delta polling (3 giây) - chỉ fetch update/insert mới, merge vào state =====
+  // Mục đích: realtime ~3s cho booking mới + driver/vehicle change từ tab/máy khác
+  const lastSyncRef = useRef(new Date().toISOString());
+  const selectedDateRef = useRef(selectedDate);
+  selectedDateRef.current = selectedDate;
+  const selectedRouteForDeltaRef = useRef(selectedRoute);
+  selectedRouteForDeltaRef.current = selectedRoute;
+  const timeSlotsRef = useRef([]);
+  useEffect(() => { timeSlotsRef.current = timeSlots; }, [timeSlots]);
+  // Dedupe toast: cùng slotId không show toast 2 lần trong 8 giây (tránh trùng giữa BroadcastChannel + delta)
+  const recentSlotToastsRef = useRef(new Map());
+
+  useEffect(() => {
+    let cancelled = false;
+    const deltaSync = async () => {
+      try {
+        const since = lastSyncRef.current;
+        const date = selectedDateRef.current;
+        const route = selectedRouteForDeltaRef.current;
+        if (!date || !route) return;
+
+        const qs = new URLSearchParams({ since, date, route }).toString();
+        const [bRes, tRes] = await Promise.all([
+          fetch(`https://vocucphuongmanage.vercel.app/api/tong-hop/bookings?${qs}`),
+          fetch(`https://vocucphuongmanage.vercel.app/api/tong-hop/timeslots?${qs}`),
+        ]);
+        if (cancelled) return;
+
+        if (bRes.ok) {
+          const data = await bRes.json();
+          const delta = data.bookings || [];
+          if (data.serverTime) lastSyncRef.current = data.serverTime;
+          if (delta.length > 0) {
+            setBookings(prev => {
+              const map = new Map(prev.map(b => [b.id, b]));
+              for (const b of delta) map.set(b.id, b);
+              return Array.from(map.values());
+            });
+          }
+        }
+
+        if (tRes.ok) {
+          const data = await tRes.json();
+          const delta = data.timeSlots || [];
+          if (delta.length > 0) {
+            // So sánh prev/new để toast khi driver/code (biển số) thay đổi từ tab/máy khác
+            const prevMap = new Map(timeSlotsRef.current.map(s => [s.id, s]));
+            const now = Date.now();
+            for (const s of delta) {
+              const old = prevMap.get(s.id);
+              if (!old) continue;
+              const drvNew = (s.driver || '').trim();
+              const drvOld = (old.driver || '').trim();
+              const codeNew = (s.code || '').trim();
+              const codeOld = (old.code || '').trim();
+              const parts = [];
+              if (drvNew !== drvOld) parts.push(`tài xế: ${drvNew || '(trống)'}`);
+              if (codeNew !== codeOld) parts.push(`biển số: ${codeNew || '(trống)'}`);
+              if (parts.length === 0) continue;
+              const last = recentSlotToastsRef.current.get(s.id) || 0;
+              if (now - last < 8000) continue; // dedupe với BroadcastChannel
+              recentSlotToastsRef.current.set(s.id, now);
+              showToast(`Khung ${s.time} ${s.route} — ${parts.join(', ')}`, 'info');
+            }
+
+            setTimeSlots(prev => {
+              const map = new Map(prev.map(s => [s.id, s]));
+              for (const s of delta) map.set(s.id, s);
+              return sortTimeSlots(Array.from(map.values()));
+            });
+            // Cập nhật selectedTrip nếu đang chọn slot vừa thay đổi (driver/vehicle)
+            setSelectedTrip(prevTrip => {
+              if (!prevTrip) return prevTrip;
+              const updated = delta.find(s => s.id === prevTrip.id);
+              return updated || prevTrip;
+            });
+          }
+        }
+      } catch (e) {
+        // Silent: lỗi mạng tạm thời — sẽ thử lại sau 3s
+      }
+    };
+
+    const intervalId = setInterval(deltaSync, 3000);
+    return () => { cancelled = true; clearInterval(intervalId); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ===== Cross-tab broadcast (cùng route → đồng bộ thông báo + refresh) =====
   const channelRef = useRef(null);
@@ -356,6 +444,7 @@ export const BookingProvider = ({ children }) => {
   // Cập nhật thông tin khung giờ (biển số xe, tài xế, v.v.)
   const updateTimeSlot = async (slotId, updatedData) => {
     try {
+      const prev = timeSlots.find(s => s.id === slotId);
       const updatedSlot = await timeSlotAPI.patch(slotId, updatedData);
       const updated = timeSlots.map(slot =>
         slot.id === slotId ? updatedSlot : slot
@@ -366,6 +455,30 @@ export const BookingProvider = ({ children }) => {
       if (selectedTrip && selectedTrip.id === slotId) {
         setSelectedTrip(updatedSlot);
       }
+
+      // Broadcast tới tab cùng máy (instant) — tab cross-machine sẽ nhận qua delta polling
+      try {
+        const drvNew = (updatedSlot.driver || '').trim();
+        const drvOld = ((prev && prev.driver) || '').trim();
+        const codeNew = (updatedSlot.code || '').trim();
+        const codeOld = ((prev && prev.code) || '').trim();
+        const parts = [];
+        if (drvNew !== drvOld) parts.push(`tài xế: ${drvNew || '(trống)'}`);
+        if (codeNew !== codeOld) parts.push(`biển số: ${codeNew || '(trống)'}`);
+        if (parts.length > 0) {
+          const msg = `Khung ${updatedSlot.time} ${updatedSlot.route} — ${parts.join(', ')}`;
+          if (channelRef.current) {
+            channelRef.current.postMessage({
+              from: tabIdRef.current,
+              route: updatedSlot.route,
+              message: msg,
+              type: 'info',
+              slotId: updatedSlot.id,
+              ts: Date.now(),
+            });
+          }
+        }
+      } catch (e) { /* ignore broadcast failure */ }
 
       console.log('✅ Đã cập nhật time slot:', updatedSlot);
     } catch (error) {

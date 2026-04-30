@@ -221,51 +221,62 @@ const TimeSlotsNew = () => {
           </button>
         </div>
       ) : (
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-0 border-2 border-slate-800 rounded overflow-hidden">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2">
         {currentDayTimeSlots.map((slot, index) => {
           const bookingsCount = getBookingsByTimeSlot(slot.id).length;
           const isSelected = selectedTrip?.id === slot.id;
           const hasBookings = bookingsCount > 0;
           const isFull = bookingsCount >= 28;
           const departed = isDeparted(slot.time);
+          const fillPct = Math.min(100, (bookingsCount / 28) * 100);
 
           return (
             <div
               key={slot.id}
               onClick={() => handleSlotClick(slot)}
               className={`
-                relative border border-slate-800 cursor-pointer transition-all overflow-hidden
-                ${isSelected ? 'bg-blue-50' : 'bg-white hover:bg-slate-50'}
+                group relative rounded-lg border cursor-pointer transition-all overflow-hidden
+                ${isSelected
+                  ? 'border-blue-500 bg-blue-50 shadow-md ring-2 ring-blue-200'
+                  : hasBookings
+                    ? 'border-slate-300 bg-white shadow-sm hover:shadow-md hover:border-blue-400'
+                    : 'border-slate-200 bg-white hover:shadow-md hover:border-blue-300'
+                }
               `}
             >
-              {/* Vạch xanh bên trái khi chọn / có khách */}
-              {(isSelected || hasBookings) && (
-                <div className={`absolute left-0 top-0 bottom-0 w-1 ${isSelected ? 'bg-emerald-500' : hasBookings ? 'bg-emerald-500' : ''}`} />
-              )}
+              {/* Vạch trái: progress fill (gradient từ dưới lên) */}
+              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-slate-100 overflow-hidden">
+                <div
+                  className={`absolute left-0 right-0 bottom-0 transition-all ${
+                    isFull ? 'bg-emerald-500' : hasBookings ? 'bg-blue-500' : 'bg-slate-200'
+                  }`}
+                  style={{ height: `${fillPct}%` }}
+                />
+              </div>
 
-              <div className="px-2 py-1.5 pl-2.5">
-                {/* Dòng 1: Giờ | 28/x */}
-                <div className="flex items-baseline justify-between gap-1">
-                  <span className={`text-base font-bold leading-tight ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>
+              <div className="pl-3.5 pr-2.5 py-2.5">
+                {/* Dòng 1: Giờ to | "28/x trống" */}
+                <div className="flex items-baseline justify-between gap-1.5">
+                  <span className={`text-xl font-extrabold tracking-tight leading-none ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>
                     {slot.time}
                   </span>
-                  <span className="text-xs font-semibold leading-tight">
+                  <span className="text-xs font-bold leading-none">
                     <span className="text-slate-700">28</span>
-                    <span className="text-slate-400">/</span>
-                    <span className={isFull ? 'text-emerald-600' : hasBookings ? 'text-blue-600' : 'text-blue-600'}>
+                    <span className="text-slate-300">/</span>
+                    <span className={isFull ? 'text-emerald-600' : hasBookings ? 'text-blue-600' : 'text-slate-400'}>
                       {28 - bookingsCount}
                     </span>
                   </span>
                 </div>
 
-                {/* Dòng 2: Tài xế (T: ...) — chỉ hiển thị 1 dòng cô đọng */}
+                {/* Dòng 2: Tài xế */}
                 {(() => {
                   const driverArr = slot.driver ? slot.driver.split(',').map(s => s.trim()).filter(Boolean) : [];
                   const firstDriver = driverArr[0];
-                  if (!firstDriver) return <div className="text-[10px] text-slate-400 leading-tight">Xe 28G</div>;
+                  if (!firstDriver) return <div className="text-[11px] text-slate-400 leading-tight mt-1.5">Xe 28G</div>;
                   return (
-                    <div className="text-[10px] text-slate-600 leading-tight truncate">
-                      T: {firstDriver}
+                    <div className="text-[11px] text-slate-600 leading-tight mt-1.5 truncate">
+                      <span className="text-slate-400 font-medium">T:</span> {firstDriver}
                     </div>
                   );
                 })()}
@@ -275,12 +286,12 @@ const TimeSlotsNew = () => {
                   const plates = slot.code ? slot.code.split(',').map(s => s.trim()).filter(Boolean) : [];
                   const firstPlate = plates[0];
                   return (
-                    <div className="flex items-center justify-between gap-1 mt-0.5">
+                    <div className="flex items-center justify-between gap-1 mt-1.5 min-h-[18px]">
                       {departed ? (
-                        <span className="text-[9px] bg-slate-200 text-slate-700 px-1 py-0 rounded font-bold">ĐãXB</span>
+                        <span className="text-[10px] bg-slate-700 text-white px-1.5 py-0.5 rounded font-bold tracking-wide">ĐÃ XB</span>
                       ) : <span />}
                       {firstPlate && (
-                        <span className="text-[10px] font-bold text-slate-800 truncate">
+                        <span className="text-[11px] font-bold text-slate-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded truncate">
                           {firstPlate}
                         </span>
                       )}
@@ -289,14 +300,11 @@ const TimeSlotsNew = () => {
                 })()}
               </div>
 
-              {/* Nút edit ở góc phải */}
+              {/* Nút edit hover */}
               <button
                 onClick={(e) => handleEditClick(e, slot)}
-                className="absolute top-0.5 right-0.5 bg-slate-700 hover:bg-slate-900 text-white rounded w-4 h-4 flex items-center justify-center text-[9px] font-bold transition opacity-0 hover:opacity-100 group-hover:opacity-100"
+                className="absolute top-1 right-1 bg-white/95 hover:bg-blue-500 hover:text-white text-slate-500 border border-slate-200 rounded w-5 h-5 flex items-center justify-center text-[10px] transition opacity-0 group-hover:opacity-100"
                 title="Chỉnh sửa"
-                style={{ opacity: 0 }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = 0}
               >
                 ✎
               </button>
@@ -307,9 +315,12 @@ const TimeSlotsNew = () => {
         {/* Add New Slot Button */}
         <div
           onClick={() => setShowAddSlotModal(true)}
-          className="border border-slate-800 bg-slate-50 flex items-center justify-center cursor-pointer hover:bg-blue-50 transition-all min-h-[60px]"
+          className="rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 hover:text-blue-500 text-slate-400 transition-all min-h-[80px]"
         >
-          <span className="text-2xl font-light text-slate-400">+</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-2xl font-light">+</span>
+            <span className="text-xs font-medium">Thêm giờ</span>
+          </div>
         </div>
       </div>
       )}
