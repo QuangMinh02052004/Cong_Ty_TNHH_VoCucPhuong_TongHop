@@ -111,6 +111,14 @@ export const AuthProvider = ({ children }) => {
   // Check if user is manager or admin
   const isManager = () => hasRole('admin', 'manager');
 
+  // Check if user has a specific permission key (e.g. 'tonghop.edit')
+  const hasPerm = (perm) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    if (Array.isArray(user.permissions) && user.permissions.includes(perm)) return true;
+    return false;
+  };
+
   const value = {
     user,
     setUser,
@@ -121,6 +129,7 @@ export const AuthProvider = ({ children }) => {
     hasRole,
     isAdmin,
     isManager,
+    hasPerm,
     isAuthenticated: !!user
   };
 

@@ -5,6 +5,45 @@ import ConfirmModal from '../components/ConfirmModal';
 // Use relative URL for Vercel deployment - API routes are on the same domain
 const API_URL = '/api/tong-hop';
 
+// Danh sách tất cả permissions của TongHop
+const ALL_PERMS = [
+  { key: 'tonghop.view',     label: 'Xem đặt vé / chuyến (Tổng hợp)' },
+  { key: 'tonghop.edit',     label: 'Tạo / sửa đặt vé' },
+  { key: 'tonghop.cancel',   label: 'Hủy đặt vé' },
+  { key: 'thongke.view',     label: 'Xem thống kê / doanh thu' },
+  { key: 'logs.view',        label: 'Xem nhật ký thao tác' },
+  { key: 'routes.manage',    label: 'Quản lý tuyến xe' },
+  { key: 'vehicles.manage',  label: 'Quản lý xe' },
+  { key: 'drivers.manage',   label: 'Quản lý tài xế' },
+  { key: 'phongve.view',     label: 'Xem nhập hàng (Phòng vé)' },
+  { key: 'phongve.create',   label: 'Tạo đơn nhập hàng' },
+  { key: 'phongve.edit',     label: 'Sửa đơn nhập hàng' },
+  { key: 'phongve.cancel',   label: 'Hủy đơn nhập hàng' },
+  { key: 'kho.view',         label: 'Xem kho hàng' },
+  { key: 'kho.edit',         label: 'Sửa kho hàng (giao / nhận)' },
+  { key: 'users.manage',     label: 'Quản lý tài khoản' }
+];
+
+// Preset cho từng vai trò
+const PRESETS = {
+  user: {
+    label: 'Nhân viên cơ bản',
+    perms: ['tonghop.view', 'tonghop.edit', 'thongke.view']
+  },
+  manager: {
+    label: 'Quản lý chi nhánh',
+    perms: ['tonghop.view','tonghop.edit','tonghop.cancel','thongke.view','logs.view','routes.manage','vehicles.manage','drivers.manage']
+  },
+  admin: {
+    label: 'Toàn quyền',
+    perms: ALL_PERMS.map(p => p.key)
+  },
+  none: {
+    label: 'Bỏ chọn tất cả',
+    perms: []
+  }
+};
+
 const UserManagementPage = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +55,8 @@ const UserManagementPage = () => {
     fullName: '',
     email: '',
     phone: '',
-    role: 'user'
+    role: 'user',
+    permissions: []
   });
   const [message, setMessage] = useState({ type: '', text: '' });
   const [confirmModal, setConfirmModal] = useState({ isOpen: false });
@@ -48,6 +88,24 @@ const UserManagementPage = () => {
     }));
   };
 
+  // Toggle 1 permission
+  const togglePerm = (key) => {
+    setFormData(prev => {
+      const has = prev.permissions.includes(key);
+      return {
+        ...prev,
+        permissions: has ? prev.permissions.filter(p => p !== key) : [...prev.permissions, key]
+      };
+    });
+  };
+
+  // Apply preset
+  const applyPreset = (presetName) => {
+    const preset = PRESETS[presetName];
+    if (!preset) return;
+    setFormData(prev => ({ ...prev, permissions: [...preset.perms] }));
+  };
+
   // Open modal for create
   const handleCreate = () => {
     setEditingUser(null);
@@ -57,7 +115,8 @@ const UserManagementPage = () => {
       fullName: '',
       email: '',
       phone: '',
-      role: 'user'
+      role: 'user',
+      permissions: [...PRESETS.user.perms]
     });
     setShowModal(true);
     setMessage({ type: '', text: '' });
@@ -66,13 +125,18 @@ const UserManagementPage = () => {
   // Open modal for edit
   const handleEdit = (user) => {
     setEditingUser(user);
+    let perms = Array.isArray(user.permissions) ? [...user.permissions] : [];
+    if (perms.length === 0 && PRESETS[user.role]) {
+      perms = [...PRESETS[user.role].perms];
+    }
     setFormData({
       username: user.username,
       password: '', // Don't pre-fill password
       fullName: user.fullName,
       email: user.email || '',
       phone: user.phone || '',
-      role: user.role
+      role: user.role,
+      permissions: perms
     });
     setShowModal(true);
     setMessage({ type: '', text: '' });
@@ -91,7 +155,8 @@ const UserManagementPage = () => {
           email: formData.email,
           phone: formData.phone,
           role: formData.role,
-          isActive: editingUser.isActive
+          isActive: editingUser.isActive,
+          permissions: formData.permissions
         });
         setMessage({ type: 'success', text: 'Cập nhật user thành công!' });
       } else {
@@ -126,7 +191,8 @@ const UserManagementPage = () => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        isActive: !user.isActive
+        isActive: !user.isActive,
+        permissions: Array.isArray(user.permissions) ? user.permissions : []
       });
       setMessage({
         type: 'success',
@@ -212,12 +278,15 @@ const UserManagementPage = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SĐT</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vai trò</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quyền</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((user) => (
+                {users.map((user) => {
+                  const permCount = Array.isArray(user.permissions) ? user.permissions.length : 0;
+                  return (
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -239,6 +308,12 @@ const UserManagementPage = () => {
                       }`}>
                         {user.role === 'admin' ? 'Admin' : user.role === 'manager' ? 'Quản lý' : 'Nhân viên'}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {user.role === 'admin'
+                        ? <span className="text-purple-700 font-medium">Toàn quyền</span>
+                        : (permCount > 0 ? `${permCount} quyền` : <span className="text-gray-400">Mặc định</span>)
+                      }
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
@@ -271,7 +346,8 @@ const UserManagementPage = () => {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
 
@@ -286,8 +362,8 @@ const UserManagementPage = () => {
 
       {/* Modal Create/Edit */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl my-8">
             <h2 className="text-xl font-bold text-gray-800 mb-4">
               {editingUser ? 'Sửa User' : 'Thêm User Mới'}
             </h2>
@@ -302,7 +378,7 @@ const UserManagementPage = () => {
             )}
 
             <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Username */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -401,6 +477,50 @@ const UserManagementPage = () => {
                     <option value="admin">Admin</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Permissions */}
+              <div className="mt-5 border-t pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-semibold text-gray-700">
+                    Phân quyền chi tiết
+                    <span className="ml-2 text-xs font-normal text-gray-500">
+                      (Admin luôn có toàn quyền — không cần tick)
+                    </span>
+                  </label>
+                  <div className="flex flex-wrap gap-1">
+                    {Object.entries(PRESETS).map(([key, p]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => applyPreset(key)}
+                        className="text-xs px-2 py-1 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-700 rounded transition"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto p-3 bg-gray-50 rounded-lg border">
+                  {ALL_PERMS.map(perm => (
+                    <label key={perm.key} className="flex items-center gap-2 text-sm py-1 hover:bg-white rounded px-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.permissions.includes(perm.key)}
+                        onChange={() => togglePerm(perm.key)}
+                        disabled={formData.role === 'admin'}
+                        className="rounded text-blue-500 focus:ring-blue-500"
+                      />
+                      <span className={formData.role === 'admin' ? 'text-gray-400' : 'text-gray-700'}>
+                        {perm.label}
+                        <span className="ml-1 text-xs text-gray-400">({perm.key})</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Đã chọn: <strong>{formData.role === 'admin' ? ALL_PERMS.length : formData.permissions.length}</strong> / {ALL_PERMS.length} quyền
+                </p>
               </div>
 
               {/* Buttons */}
