@@ -221,12 +221,12 @@ const TimeSlotsNew = () => {
           </button>
         </div>
       ) : (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-0 border-2 border-slate-800 rounded overflow-hidden">
         {currentDayTimeSlots.map((slot, index) => {
           const bookingsCount = getBookingsByTimeSlot(slot.id).length;
           const isSelected = selectedTrip?.id === slot.id;
           const hasBookings = bookingsCount > 0;
-          const isEditing = editingSlot === slot.id;
+          const isFull = bookingsCount >= 28;
           const departed = isDeparted(slot.time);
 
           return (
@@ -234,77 +234,72 @@ const TimeSlotsNew = () => {
               key={slot.id}
               onClick={() => handleSlotClick(slot)}
               className={`
-                relative border rounded-lg cursor-pointer transition-all hover:shadow-md overflow-hidden
-                ${isSelected
-                  ? 'border-sky-500 ring-2 ring-sky-400'
-                  : hasBookings
-                    ? 'border-emerald-400'
-                    : 'border-gray-300 hover:border-sky-400'
-                }
+                relative border border-slate-800 cursor-pointer transition-all overflow-hidden
+                ${isSelected ? 'bg-blue-50' : 'bg-white hover:bg-slate-50'}
               `}
             >
-              {/* Layout ngang với vạch xanh bên trái */}
-              <div className="flex">
-                {/* Vạch màu bên trái - hiển thị tiến độ booking */}
-                <div
-                  className={`w-2.5 ${hasBookings ? 'bg-emerald-500' : 'bg-gray-300'}`}
-                  style={{
-                    background: hasBookings
-                      ? `linear-gradient(to top, #10B981 ${(bookingsCount / 28) * 100}%, #E5E7EB ${(bookingsCount / 28) * 100}%)`
-                      : '#D1D5DB'
-                  }}
-                />
+              {/* Vạch xanh bên trái khi chọn / có khách */}
+              {(isSelected || hasBookings) && (
+                <div className={`absolute left-0 top-0 bottom-0 w-1 ${isSelected ? 'bg-emerald-500' : hasBookings ? 'bg-emerald-500' : ''}`} />
+              )}
 
-                {/* Nội dung chính - hiển thị ngang */}
-                <div className="flex-1 px-3 py-2">
-                  {/* Dòng 1: Giờ | Số vé/Tổng */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`text-lg font-bold ${isSelected ? 'text-sky-600' : 'text-gray-800'}`}>
-                      {slot.time}
+              <div className="px-2 py-1.5 pl-2.5">
+                {/* Dòng 1: Giờ | 28/x */}
+                <div className="flex items-baseline justify-between gap-1">
+                  <span className={`text-base font-bold leading-tight ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>
+                    {slot.time}
+                  </span>
+                  <span className="text-xs font-semibold leading-tight">
+                    <span className="text-slate-700">28</span>
+                    <span className="text-slate-400">/</span>
+                    <span className={isFull ? 'text-emerald-600' : hasBookings ? 'text-blue-600' : 'text-blue-600'}>
+                      {28 - bookingsCount}
                     </span>
-                    <span className={`text-sm font-semibold ${bookingsCount === 28 ? 'text-emerald-600' : hasBookings ? 'text-amber-600' : 'text-gray-500'}`}>
-                      {bookingsCount}/{28}
-                    </span>
-                  </div>
-
-                  {/* Dòng 2: Biển số + Tài xế theo từng cặp */}
-                  {(() => {
-                    const plates = slot.code ? slot.code.split(',').map(s => s.trim()).filter(Boolean) : [];
-                    const driverArr = slot.driver ? slot.driver.split(',').map(s => s.trim()).filter(Boolean) : [];
-                    const maxLen = Math.max(plates.length, driverArr.length);
-                    if (maxLen === 0) return null;
-                    return (
-                      <div className="mt-1 space-y-0.5">
-                        {Array.from({ length: maxLen }).map((_, i) => (
-                          <div key={i} className="flex items-center gap-1.5 text-xs leading-tight">
-                            {plates[i] && <span className="font-bold text-gray-800 bg-amber-50 border border-amber-200 px-1 rounded">{plates[i]}</span>}
-                            {plates[i] && driverArr[i] && <span className="text-gray-400">—</span>}
-                            {driverArr[i] && <span className="font-medium text-sky-700">{driverArr[i]}</span>}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Badge đã xuất bến */}
-                  {departed && (
-                    <div className="mt-1">
-                      <span className="text-[10px] text-white bg-gray-500 px-1.5 py-0.5 rounded font-medium">
-                        Đã xuất bến
-                      </span>
-                    </div>
-                  )}
+                  </span>
                 </div>
 
-                {/* Nút edit ở góc phải */}
-                <button
-                  onClick={(e) => handleEditClick(e, slot)}
-                  className="absolute top-1 right-1 bg-gray-500 hover:bg-gray-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold transition z-10 opacity-70 hover:opacity-100"
-                  title="Chỉnh sửa"
-                >
-                  ✎
-                </button>
+                {/* Dòng 2: Tài xế (T: ...) — chỉ hiển thị 1 dòng cô đọng */}
+                {(() => {
+                  const driverArr = slot.driver ? slot.driver.split(',').map(s => s.trim()).filter(Boolean) : [];
+                  const firstDriver = driverArr[0];
+                  if (!firstDriver) return <div className="text-[10px] text-slate-400 leading-tight">Xe 28G</div>;
+                  return (
+                    <div className="text-[10px] text-slate-600 leading-tight truncate">
+                      T: {firstDriver}
+                    </div>
+                  );
+                })()}
+
+                {/* Dòng 3: Badge ĐãXB + biển số */}
+                {(() => {
+                  const plates = slot.code ? slot.code.split(',').map(s => s.trim()).filter(Boolean) : [];
+                  const firstPlate = plates[0];
+                  return (
+                    <div className="flex items-center justify-between gap-1 mt-0.5">
+                      {departed ? (
+                        <span className="text-[9px] bg-slate-200 text-slate-700 px-1 py-0 rounded font-bold">ĐãXB</span>
+                      ) : <span />}
+                      {firstPlate && (
+                        <span className="text-[10px] font-bold text-slate-800 truncate">
+                          {firstPlate}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
+
+              {/* Nút edit ở góc phải */}
+              <button
+                onClick={(e) => handleEditClick(e, slot)}
+                className="absolute top-0.5 right-0.5 bg-slate-700 hover:bg-slate-900 text-white rounded w-4 h-4 flex items-center justify-center text-[9px] font-bold transition opacity-0 hover:opacity-100 group-hover:opacity-100"
+                title="Chỉnh sửa"
+                style={{ opacity: 0 }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = 0}
+              >
+                ✎
+              </button>
             </div>
           );
         })}
@@ -312,12 +307,9 @@ const TimeSlotsNew = () => {
         {/* Add New Slot Button */}
         <div
           onClick={() => setShowAddSlotModal(true)}
-          className="border-2 border-dashed border-gray-300 rounded-lg px-3 py-2 flex items-center justify-center cursor-pointer hover:border-sky-400 hover:bg-sky-50 transition-all min-h-[70px]"
+          className="border border-slate-800 bg-slate-50 flex items-center justify-center cursor-pointer hover:bg-blue-50 transition-all min-h-[60px]"
         >
-          <div className="flex items-center gap-2 text-gray-400">
-            <span className="text-2xl font-light">+</span>
-            <span className="text-sm">Thêm giờ</span>
-          </div>
+          <span className="text-2xl font-light text-slate-400">+</span>
         </div>
       </div>
       )}

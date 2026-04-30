@@ -43,59 +43,77 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-blue-700 text-white shadow-lg">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+    <header className="bg-slate-900 text-white shadow-md">
+      <div className="px-4">
+        <div className="flex items-center justify-between h-12">
           {/* Logo */}
-          <div className="flex items-center">
-            <div>
-              <h1 className="text-xl font-bold">VÕ CÚC PHƯƠNG</h1>
-              <p className="text-xs text-blue-200">Hệ thống quản lý vận tải</p>
+          <div className="flex items-center mr-6">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-sm font-bold">VC</div>
+              <div className="hidden lg:block">
+                <h1 className="text-sm font-bold leading-tight">VÕ CÚC PHƯƠNG</h1>
+                <p className="text-[10px] text-slate-400 leading-tight">Hệ thống quản lý</p>
+              </div>
             </div>
           </div>
 
           {/* Navigation Menu */}
-          <nav className="hidden md:flex space-x-1">
+          <nav className="flex items-center space-x-0 flex-1">
             <button
               onClick={() => navigate('/')}
-              className={`px-4 py-2 rounded transition text-sm ${
-                isActive('/') ? 'bg-blue-600' : 'hover:bg-blue-600'
+              className={`relative px-4 h-12 transition text-sm font-medium flex items-center gap-2 ${
+                isActive('/')
+                  ? 'text-white bg-slate-800 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-blue-400'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
             >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
               Hành khách
             </button>
             <button
               onClick={() => navigate('/hang-hoa')}
-              className={`px-4 py-2 rounded transition text-sm ${
-                isActive('/hang-hoa') ? 'bg-blue-600' : 'hover:bg-blue-600'
+              className={`relative px-4 h-12 transition text-sm font-medium flex items-center gap-2 ${
+                isActive('/hang-hoa')
+                  ? 'text-white bg-slate-800 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-blue-400'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
             >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
               Hàng hóa
             </button>
             <button
               onClick={() => navigate('/dieu-hanh')}
-              className={`px-4 py-2 rounded transition text-sm ${
-                isActive('/dieu-hanh') ? 'bg-blue-600' : 'hover:bg-blue-600'
+              className={`relative px-4 h-12 transition text-sm font-medium flex items-center gap-2 ${
+                isActive('/dieu-hanh')
+                  ? 'text-white bg-slate-800 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-blue-400'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
             >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              </svg>
               Điều hành
             </button>
           </nav>
 
           {/* Right Section - User Info & Balance */}
-          <div className="flex items-center space-x-4">
-            <div className="text-right hidden lg:block">
-              <p className="text-xs text-blue-200">
+          <div className="flex items-center space-x-3">
+            <div className="text-right hidden lg:block leading-tight">
+              <p className="text-[11px] text-slate-300">
                 {user?.fullName || 'Tổng Đài An Đông 01'}
                 {user?.role && ` - ${user.role === 'admin' ? 'Admin' : user.role === 'manager' ? 'Quản lý' : 'Nhân viên'}`}
               </p>
-              <p className="text-lg font-bold text-green-300">
+              <p className="text-sm font-bold text-emerald-400">
                 TK {formatCurrency(totalRevenue)} đ
               </p>
             </div>
             <button
               onClick={handleLogout}
-              className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded transition text-xs"
+              className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded transition text-xs font-medium"
               title="Đăng xuất"
             >
               Đăng xuất

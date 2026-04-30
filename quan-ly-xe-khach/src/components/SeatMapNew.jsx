@@ -312,45 +312,45 @@ const SeatMapNew = () => {
 
   return (
     <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <div className="flex gap-1 p-2">
+      {/* Tabs - underline style */}
+      <div className="border-b-2 border-gray-200">
+        <div className="flex gap-0 px-2">
           <button
             onClick={() => setActiveTab('seatMap')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
+            className={`relative px-4 py-3 text-sm font-semibold transition ${
               activeTab === 'seatMap'
-                ? 'bg-sky-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'text-blue-600 after:absolute after:bottom-[-2px] after:left-0 after:right-0 after:h-[3px] after:bg-blue-500'
+                : 'text-gray-600 hover:text-blue-600'
             }`}
           >
             Sơ đồ ghế
           </button>
           <button
             onClick={() => setActiveTab('ticketList')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
+            className={`relative px-4 py-3 text-sm font-semibold transition ${
               activeTab === 'ticketList'
-                ? 'bg-sky-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'text-blue-600 after:absolute after:bottom-[-2px] after:left-0 after:right-0 after:h-[3px] after:bg-blue-500'
+                : 'text-gray-600 hover:text-blue-600'
             }`}
           >
             Danh sách vé ({currentBookings.length})
           </button>
           <button
             onClick={() => setActiveTab('transfer')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
+            className={`relative px-4 py-3 text-sm font-semibold transition ${
               activeTab === 'transfer'
-                ? 'bg-sky-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'text-blue-600 after:absolute after:bottom-[-2px] after:left-0 after:right-0 after:h-[3px] after:bg-blue-500'
+                : 'text-gray-600 hover:text-blue-600'
             }`}
           >
             Phân tài trung chuyển khách
           </button>
           <button
             onClick={() => setActiveTab('cargo')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
+            className={`relative px-4 py-3 text-sm font-semibold transition ${
               activeTab === 'cargo'
-                ? 'bg-sky-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'text-blue-600 after:absolute after:bottom-[-2px] after:left-0 after:right-0 after:h-[3px] after:bg-blue-500'
+                : 'text-gray-600 hover:text-blue-600'
             }`}
           >
             Hàng trên xe
@@ -550,30 +550,46 @@ const SeatMapNew = () => {
 
                 // Xác định style cho card — đọc trực tiếp từ DB (qua booking data)
                 const isPrinted = hasPassenger && !!passenger.printed;
-                let cardClass = 'border-gray-200 bg-gray-50';
+                let cardClass = 'border-slate-800 bg-white';
                 if (hasPassenger && isTransferMode) {
-                  // Kiểm tra có trong hàng đợi không
                   const inQueue = transferQueue.find(b => b.id === passenger.id);
                   if (inQueue) {
-                    cardClass = 'border-amber-400 bg-amber-50 ring-2 ring-amber-300';
+                    cardClass = 'border-amber-500 bg-amber-50 ring-2 ring-amber-300';
                   } else {
-                    cardClass = isPrinted ? 'border-gray-500 bg-gray-300' : 'border-sky-300 bg-sky-50';
+                    cardClass = isPrinted ? 'border-slate-800 bg-slate-100' : 'border-slate-800 bg-blue-50';
                   }
                 } else if (hasPassenger) {
-                  cardClass = isPrinted ? 'border-gray-500 bg-gray-300' : 'border-sky-300 bg-sky-50';
+                  cardClass = isPrinted ? 'border-slate-800 bg-slate-100' : 'border-slate-800 bg-blue-50';
                 } else if (isLocked) {
-                  cardClass = 'border-gray-400 bg-gray-200';
+                  cardClass = 'border-slate-800 bg-slate-200';
                 } else if (isLockedByMe) {
-                  cardClass = 'border-sky-400 bg-sky-100';
+                  cardClass = 'border-blue-500 bg-blue-100 ring-2 ring-blue-300';
                 } else if (isTransferMode) {
-                  // Transfer mode: viền nét đứt, màu indigo
-                  cardClass = 'border-indigo-300 bg-indigo-50 border-dashed';
+                  cardClass = 'border-indigo-400 bg-indigo-50 border-dashed';
+                }
+
+                // Tính progress thanh toán cho thanh dưới đáy card
+                let paidPct = 0;
+                let amountTotal = 0;
+                let amountPaid = 0;
+                let progressColor = 'bg-emerald-500';
+                if (hasPassenger) {
+                  amountTotal = Number(passenger.amount) || 0;
+                  amountPaid = Number(passenger.paid) || 0;
+                  if (amountTotal > 0) {
+                    paidPct = Math.min(100, Math.max(0, (amountPaid / amountTotal) * 100));
+                  } else if (amountPaid > 0) {
+                    paidPct = 100;
+                  }
+                  if (paidPct >= 100) progressColor = 'bg-emerald-500';
+                  else if (paidPct > 0) progressColor = 'bg-amber-500';
+                  else progressColor = 'bg-red-400';
                 }
 
                 return (
                   <div
                     key={seatNum}
-                    className={`border-2 rounded-lg p-3 hover:shadow-lg transition ${cardClass}`}
+                    className={`relative border-2 rounded-md p-3 pb-4 hover:shadow-md transition ${cardClass}`}
                   >
                     {hasPassenger ? (
                       <>
@@ -709,6 +725,23 @@ const SeatMapNew = () => {
                           >
                             Xóa
                           </button>
+                        </div>
+
+                        {/* Progress bar thanh toán + nguời tạo (giống Anvui) */}
+                        <div className="absolute left-0 right-0 bottom-0 px-2 pb-1 bg-white/80 rounded-b">
+                          <div className="flex items-center justify-between text-[10px] text-slate-600 mb-0.5">
+                            <span className="font-semibold">
+                              <span className={paidPct >= 100 ? 'text-emerald-600' : paidPct > 0 ? 'text-amber-600' : 'text-red-500'}>
+                                {amountPaid.toLocaleString('vi-VN')}
+                              </span>
+                              <span className="text-slate-400">/</span>
+                              <span>{amountTotal.toLocaleString('vi-VN')}</span>
+                            </span>
+                            <span className="truncate ml-1 max-w-[55%]">{passenger.createdBy ? `G: ${passenger.createdBy}` : ''}</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-slate-200 rounded overflow-hidden">
+                            <div className={`h-full ${progressColor} transition-all`} style={{ width: `${paidPct}%` }} />
+                          </div>
                         </div>
                       </>
                     ) : isLocked ? (
