@@ -13,6 +13,7 @@ import ProfilePage from './pages/ProfilePage';
 import UserManagementPage from './pages/UserManagementPage';
 import RouteManagementPage from './pages/RouteManagementPage';
 import VehicleDriverPage from './pages/VehicleDriverPage';
+import AuditLogPage from './pages/AuditLogPage';
 
 // Components
 import MainLayout from './components/MainLayout';
@@ -131,6 +132,11 @@ function App() {
                     <Route path="/admin/vehicles-drivers" element={
                       <ProtectedRoute requiresAdmin>
                         <VehicleDriverPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/admin/audit-log" element={
+                      <ProtectedRoute requiresAdmin>
+                        <AuditLogPage />
                       </ProtectedRoute>
                     } />
                     <Route path="/hang-hoa" element={
