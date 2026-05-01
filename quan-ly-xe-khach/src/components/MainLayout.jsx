@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useBooking } from '../context/BookingContext';
 import { useNavigate } from 'react-router-dom';
 import ToastNotification from './ToastNotification';
+import GlobalSearch from './GlobalSearch';
 
 const MainLayout = ({ children }) => {
   const { user, logout } = useAuth();
@@ -75,10 +76,10 @@ const MainLayout = ({ children }) => {
       <ToastNotification toast={globalToast} onClose={() => setGlobalToast(null)} />
       {/* Top Navigation Bar */}
       <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="w-full px-4">
-          <div className="flex items-center justify-between h-16">
+        <div className="w-full px-2 sm:px-4">
+          <div className="flex items-center justify-between h-14 sm:h-16 gap-2">
             {/* Left: Tabs + Nhập Hàng link */}
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-1 min-w-0 overflow-x-auto">
               {tabs.map((tab) => {
                 if (tab.requiresManager && !user?.role?.match(/admin|manager/)) {
                   return null;
@@ -90,7 +91,7 @@ const MainLayout = ({ children }) => {
                     key={tab.id}
                     onClick={() => handleTabClick(tab)}
                     className={`
-                      flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200
+                      flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 flex-shrink-0
                       ${isActive
                         ? 'bg-sky-500 text-white shadow-md'
                         : 'text-gray-600 hover:bg-sky-50 hover:text-sky-600'
@@ -98,28 +99,33 @@ const MainLayout = ({ children }) => {
                     `}
                   >
                     {tab.icon}
-                    <span>{tab.label}</span>
+                    <span className="hidden sm:inline">{tab.label}</span>
                   </button>
                 );
               })}
 
               {/* Divider */}
-              <div className="w-px h-8 bg-gray-300 mx-1"></div>
+              <div className="w-px h-8 bg-gray-300 mx-1 hidden sm:block"></div>
 
               {/* Nhập Hàng link */}
               <a
                 href="/nhap-hang/index.html"
-                className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 text-orange-600 hover:bg-orange-50 border border-orange-300"
+                className="flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 text-orange-600 hover:bg-orange-50 border border-orange-300 flex-shrink-0"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
-                <span>Nhập Hàng</span>
+                <span className="hidden sm:inline">Nhập Hàng</span>
               </a>
             </div>
 
-            {/* Right: Revenue & User Info */}
-            <div className="flex items-center space-x-4">
+            {/* Right: Search + Revenue & User Info */}
+            <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
+              {/* Global Search */}
+              <div className="hidden sm:block">
+                <GlobalSearch />
+              </div>
+
               {/* Revenue Display */}
               <div className="hidden md:flex items-center bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200">
                 <svg className="w-5 h-5 text-emerald-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

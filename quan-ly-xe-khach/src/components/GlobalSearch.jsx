@@ -71,7 +71,7 @@ const GlobalSearch = () => {
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
           placeholder="Tìm SĐT / tên khách..."
-          className="w-64 pl-8 pr-3 h-8 text-xs rounded-md bg-slate-800 text-white placeholder:text-slate-400 border border-slate-700 focus:border-blue-400 focus:bg-slate-700 focus:outline-none transition"
+          className="w-40 sm:w-52 md:w-64 pl-8 pr-3 h-9 text-sm rounded-lg bg-slate-50 text-slate-800 placeholder:text-slate-400 border border-slate-200 focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100 focus:outline-none transition"
         />
         {loading && (
           <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -82,7 +82,7 @@ const GlobalSearch = () => {
       </div>
 
       {open && (results.length > 0 || (query.length >= 2 && !loading)) && (
-        <div className="absolute right-0 mt-1 w-96 max-h-96 overflow-y-auto bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 z-50">
+        <div className="absolute right-0 mt-1 w-80 sm:w-96 max-h-96 overflow-y-auto bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 z-50">
           {results.length === 0 ? (
             <div className="px-3 py-4 text-center text-sm text-slate-400">Không tìm thấy kết quả</div>
           ) : (

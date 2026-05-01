@@ -136,8 +136,8 @@ const RouteFilter = () => {
 
   return (
     <div className="bg-white border-b border-gray-200 shadow-sm">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex flex-wrap items-center gap-4">
+      <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
           {/* Button Hôm nay */}
           <button
             onClick={goToToday}
@@ -313,7 +313,7 @@ const RouteFilter = () => {
           </div>
 
           {/* Station From and To */}
-          <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-2">
             <select
               value={stationFrom}
               onChange={(e) => setStationFrom(e.target.value)}
@@ -339,20 +339,20 @@ const RouteFilter = () => {
               <option>Trạm Long Khánh</option>
               <option>Trạm An Đông</option>
             </select>
-
-            {/* Nút Refresh */}
-            <button
-              onClick={async () => {
-                setIsRefreshing(true);
-                await refreshData();
-                setIsRefreshing(false);
-              }}
-              title="Làm mới dữ liệu"
-              className="p-2 hover:bg-sky-50 rounded-lg transition text-gray-500 hover:text-sky-600"
-            >
-              <FaSyncAlt className={isRefreshing ? 'animate-spin text-sky-500' : ''} />
-            </button>
           </div>
+
+          {/* Nút Refresh - luôn hiện trên mobile */}
+          <button
+            onClick={async () => {
+              setIsRefreshing(true);
+              await refreshData();
+              setIsRefreshing(false);
+            }}
+            title="Làm mới dữ liệu"
+            className="p-2 hover:bg-sky-50 rounded-lg transition text-gray-500 hover:text-sky-600 ml-auto"
+          >
+            <FaSyncAlt className={isRefreshing ? 'animate-spin text-sky-500' : ''} />
+          </button>
         </div>
       </div>
     </div>
