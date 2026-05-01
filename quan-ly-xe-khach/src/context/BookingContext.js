@@ -152,10 +152,15 @@ export const BookingProvider = ({ children }) => {
     }
   };
 
-  // Auto-refresh bookings - 30 giây (full reload, để bắt được DELETE)
+  // Auto-refresh bookings - 30 giây full reload (bắt DELETE), pause khi tab ẩn
   useEffect(() => {
-    const intervalId = setInterval(refreshData, 30000);
-    return () => clearInterval(intervalId);
+    let intervalId = null;
+    const start = () => { if (!intervalId) intervalId = setInterval(refreshData, 30000); };
+    const stop = () => { if (intervalId) { clearInterval(intervalId); intervalId = null; } };
+    const onVis = () => { if (document.hidden) stop(); else { refreshData(); start(); } };
+    if (!document.hidden) start();
+    document.addEventListener('visibilitychange', onVis);
+    return () => { stop(); document.removeEventListener('visibilitychange', onVis); };
   }, [selectedDate, selectedRoute]);
 
   // ===== Delta polling (3 giây) - chỉ fetch update/insert mới, merge vào state =====
@@ -241,8 +246,37 @@ export const BookingProvider = ({ children }) => {
       }
     };
 
-    const intervalId = setInterval(deltaSync, 3000);
-    return () => { cancelled = true; clearInterval(intervalId); };
+    // Visibility-aware polling: 2s khi active, pause khi tab ẩn, fetch ngay khi visible
+    let intervalId = null;
+    const startPolling = () => {
+      if (intervalId) return;
+      intervalId = setInterval(deltaSync, 2000);
+    };
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        deltaSync(); // catch-up ngay
+        startPolling();
+      }
+    };
+
+    if (typeof document !== 'undefined' && !document.hidden) {
+      startPolling();
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      cancelled = true;
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -292,11 +326,15 @@ export const BookingProvider = ({ children }) => {
     // Load ngay lần đầu
     refreshSeatLocks();
 
-    // Refresh mỗi 15 giây
-    const intervalId = setInterval(refreshSeatLocks, 15000);
+    // Refresh mỗi 15 giây — pause khi tab ẩn để tiết kiệm
+    let intervalId = null;
+    const start = () => { if (!intervalId) intervalId = setInterval(refreshSeatLocks, 15000); };
+    const stop = () => { if (intervalId) { clearInterval(intervalId); intervalId = null; } };
+    const onVis = () => { if (document.hidden) stop(); else { refreshSeatLocks(); start(); } };
+    if (!document.hidden) start();
+    document.addEventListener('visibilitychange', onVis);
 
-    // Cleanup khi component unmount
-    return () => clearInterval(intervalId);
+    return () => { stop(); document.removeEventListener('visibilitychange', onVis); };
   }, [selectedDate, selectedRoute]);
 
   // Release tất cả locks của user khi đóng tab/browser
