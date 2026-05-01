@@ -92,6 +92,12 @@ export const bookingAPI = {
     const response = await api.delete(`/bookings/${id}`);
     return response.data;
   },
+
+  // Tìm kiếm booking xuyên ngày/tuyến (theo tên hoặc SĐT)
+  search: async (q, limit = 30) => {
+    const response = await api.get('/bookings/search', { params: { q, limit } });
+    return response.data;
+  },
 };
 
 // ============ DRIVERS API ============

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useBooking } from '../context/BookingContext';
 import ConfirmModal from './ConfirmModal';
+import GlobalSearch from './GlobalSearch';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -102,6 +103,7 @@ const Header = () => {
 
           {/* Right Section - User Info & Balance */}
           <div className="flex items-center space-x-3">
+            <GlobalSearch />
             <div className="text-right hidden lg:block leading-tight">
               <p className="text-[11px] text-slate-300">
                 {user?.fullName || 'Tổng Đài An Đông 01'}
