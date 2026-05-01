@@ -257,11 +257,11 @@ const TimeSlotsNew = () => {
               <div className="pl-3.5 pr-2.5 py-2.5">
                 {/* Dòng 1: Giờ to | "28/x trống" */}
                 <div className="flex items-baseline justify-between gap-1.5">
-                  <span className={`text-xl font-extrabold tracking-tight leading-none ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>
+                  <span className={`text-xl font-semibold tracking-tight leading-none ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>
                     {slot.time}
                   </span>
-                  <span className="text-xs font-bold leading-none">
-                    <span className="text-slate-700">28</span>
+                  <span className="text-xs font-medium leading-none">
+                    <span className="text-slate-600">28</span>
                     <span className="text-slate-300">/</span>
                     <span className={isFull ? 'text-emerald-600' : hasBookings ? 'text-blue-600' : 'text-slate-400'}>
                       {28 - bookingsCount}
@@ -276,7 +276,7 @@ const TimeSlotsNew = () => {
                   if (!firstDriver) return <div className="text-[11px] text-slate-400 leading-tight mt-1.5">Xe 28G</div>;
                   return (
                     <div className="text-[11px] text-slate-600 leading-tight mt-1.5 truncate">
-                      <span className="text-slate-400 font-medium">T:</span> {firstDriver}
+                      <span className="text-slate-400">T:</span> {firstDriver}
                     </div>
                   );
                 })()}
@@ -288,10 +288,10 @@ const TimeSlotsNew = () => {
                   return (
                     <div className="flex items-center justify-between gap-1 mt-1.5 min-h-[18px]">
                       {departed ? (
-                        <span className="text-[10px] bg-slate-700 text-white px-1.5 py-0.5 rounded font-bold tracking-wide">ĐÃ XB</span>
+                        <span className="text-[10px] bg-slate-500 text-white px-1.5 py-0.5 rounded font-medium tracking-wide">ĐÃ XB</span>
                       ) : <span />}
                       {firstPlate && (
-                        <span className="text-[11px] font-bold text-slate-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded truncate">
+                        <span className="text-[11px] font-medium text-slate-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded truncate">
                           {firstPlate}
                         </span>
                       )}

@@ -49,9 +49,9 @@ const Header = () => {
           {/* Logo */}
           <div className="flex items-center mr-6">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-sm font-bold">VC</div>
+              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-sm font-semibold">VC</div>
               <div className="hidden lg:block">
-                <h1 className="text-sm font-bold leading-tight">VÕ CÚC PHƯƠNG</h1>
+                <h1 className="text-sm font-semibold leading-tight tracking-wide">VÕ CÚC PHƯƠNG</h1>
                 <p className="text-[10px] text-slate-400 leading-tight">Hệ thống quản lý</p>
               </div>
             </div>
@@ -61,7 +61,7 @@ const Header = () => {
           <nav className="flex items-center space-x-0 flex-1">
             <button
               onClick={() => navigate('/')}
-              className={`relative px-4 h-12 transition text-sm font-medium flex items-center gap-2 ${
+              className={`relative px-4 h-12 transition text-sm font-normal flex items-center gap-2 ${
                 isActive('/')
                   ? 'text-white bg-slate-800 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-blue-400'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -74,7 +74,7 @@ const Header = () => {
             </button>
             <button
               onClick={() => navigate('/hang-hoa')}
-              className={`relative px-4 h-12 transition text-sm font-medium flex items-center gap-2 ${
+              className={`relative px-4 h-12 transition text-sm font-normal flex items-center gap-2 ${
                 isActive('/hang-hoa')
                   ? 'text-white bg-slate-800 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-blue-400'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -87,7 +87,7 @@ const Header = () => {
             </button>
             <button
               onClick={() => navigate('/dieu-hanh')}
-              className={`relative px-4 h-12 transition text-sm font-medium flex items-center gap-2 ${
+              className={`relative px-4 h-12 transition text-sm font-normal flex items-center gap-2 ${
                 isActive('/dieu-hanh')
                   ? 'text-white bg-slate-800 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-blue-400'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -107,7 +107,7 @@ const Header = () => {
                 {user?.fullName || 'Tổng Đài An Đông 01'}
                 {user?.role && ` - ${user.role === 'admin' ? 'Admin' : user.role === 'manager' ? 'Quản lý' : 'Nhân viên'}`}
               </p>
-              <p className="text-sm font-bold text-emerald-400">
+              <p className="text-sm font-semibold text-emerald-400">
                 TK {formatCurrency(totalRevenue)} đ
               </p>
             </div>
