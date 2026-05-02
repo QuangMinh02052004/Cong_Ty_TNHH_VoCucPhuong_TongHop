@@ -16,6 +16,7 @@ import VehicleDriverPage from './pages/VehicleDriverPage';
 import AuditLogPage from './pages/AuditLogPage';
 import ReportsPage from './pages/ReportsPage';
 import DashboardPage from './pages/DashboardPage';
+import CustomerHistoryPage from './pages/CustomerHistoryPage';
 
 // Components
 import MainLayout from './components/MainLayout';
@@ -151,6 +152,7 @@ function App() {
                         <DashboardPage />
                       </ProtectedRoute>
                     } />
+                    <Route path="/customer-history" element={<CustomerHistoryPage />} />
                     <Route path="/hang-hoa" element={
                       <ProtectedRoute requiresManager>
                         <HangHoaPage />

@@ -5,6 +5,7 @@ import { activityLogAPI } from '../services/api';
 import PrintBookingList from './PrintBookingList';
 import ConfirmModal from './ConfirmModal';
 import { findStationWithNumber } from '../data/stations';
+import { printTicketWithQR } from '../utils/printTicket';
 
 // Call status options với màu sắc - khớp mẫu gốc
 const CALL_STATUS_OPTIONS = [
@@ -718,6 +719,13 @@ const SeatMapNew = () => {
                             className="flex-1 bg-sky-500 text-white py-1 px-2 rounded-lg text-sm hover:bg-sky-600 transition flex items-center justify-center"
                           >
                             Gọi
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); printTicketWithQR(passenger); }}
+                            className="bg-emerald-500 text-white py-1 px-2 rounded-lg text-sm hover:bg-emerald-600 transition"
+                            title="In vé có QR"
+                          >
+                            In
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDelete(passenger.id); }}
