@@ -52,6 +52,35 @@ const ReportsPage = () => {
     }
   };
 
+  const exportCSV = () => {
+    if (!report?.bookings) return;
+    const headers = ['ID', 'Tên', 'SĐT', 'Ghế', 'Tuyến', 'Giờ', 'Ngày', 'Tổng tiền', 'Đã thu', 'Còn nợ', 'Tạo bởi', 'Tạo lúc'];
+    const rows = report.bookings.map(b => [
+      b.id,
+      (b.name || '').replace(/"/g, '""'),
+      b.phone || '',
+      b.seatNumber,
+      (b.route || '').replace(/"/g, '""'),
+      b.timeSlot || '',
+      b.date,
+      Number(b.amount) || 0,
+      Number(b.paid) || 0,
+      (Number(b.amount) || 0) - (Number(b.paid) || 0),
+      (b.createdBy || '').replace(/"/g, '""'),
+      b.createdAt ? new Date(b.createdAt).toLocaleString('vi-VN') : '',
+    ]);
+    const csv = '\uFEFF' + [headers, ...rows]
+      .map(r => r.map(c => `"${c}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bao-cao-${date}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Convert DD-MM-YYYY ↔ YYYY-MM-DD for date input
   const toInputDate = (s) => {
     const [d, m, y] = (s || '').split('-');
@@ -81,6 +110,14 @@ const ReportsPage = () => {
               className="px-3 py-1.5 text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 rounded font-medium transition"
             >
               Hôm nay
+            </button>
+            <button
+              onClick={exportCSV}
+              disabled={!report?.bookings?.length}
+              className="px-3 py-1.5 text-sm bg-emerald-500 hover:bg-emerald-600 text-white rounded font-medium transition disabled:opacity-50"
+              title="Xuất CSV (mở được bằng Excel)"
+            >
+              Xuất CSV
             </button>
           </div>
         </div>
