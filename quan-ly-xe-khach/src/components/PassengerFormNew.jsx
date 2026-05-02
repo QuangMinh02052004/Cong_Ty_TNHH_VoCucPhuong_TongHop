@@ -36,6 +36,8 @@ const PassengerFormNew = () => {
   const [searching, setSearching] = useState(false);
   const [toast, setToast] = useState(null);
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: () => {} });
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -73,6 +75,36 @@ const PassengerFormNew = () => {
     sendZalo: false,
     autoFill: true,
   });
+
+  // Debounced suggest (gõ 3+ ký tự sđt → gợi ý khách quen)
+  useEffect(() => {
+    if (isEditing) return;
+    const q = (formData.phone || '').trim();
+    if (q.length < 3 || q.length >= 10) { setSuggestions([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const res = await axios.get(`${API_URL}/customers/suggest`, { params: { q, limit: 8 } });
+        setSuggestions(res.data?.suggestions || []);
+      } catch { setSuggestions([]); }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [formData.phone, isEditing]);
+
+  const applySuggestion = (s) => {
+    setFormData(prev => ({
+      ...prev,
+      phone: s.phone || '',
+      name: s.name || prev.name,
+      pickupMethod: s.pickupMethod || prev.pickupMethod,
+      pickupAddress: s.pickupAddress || prev.pickupAddress,
+      dropoffMethod: s.dropoffMethod || prev.dropoffMethod,
+      dropoffAddress: s.dropoffAddress || prev.dropoffAddress,
+      note: s.note || prev.note,
+    }));
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setFoundPassenger({ name: s.name, phone: s.phone });
+  };
 
   const searchPassengerByPhone = async (phone) => {
     if (phone.length >= 10) {
@@ -253,8 +285,31 @@ const PassengerFormNew = () => {
         {/* Điện thoại */}
         <div className={row}>
           <label className={lbl}>Điện thoại</label>
-          <input type="text" name="phone" value={formData.phone} onChange={handleInputChange}
-            autoComplete="off" className={`${inp} flex-1`} placeholder="Số điện thoại" />
+          <div className="flex-1 relative">
+            <input
+              type="text" name="phone" value={formData.phone} onChange={handleInputChange}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              autoComplete="off" className={`${inp} w-full`} placeholder="Số điện thoại"
+            />
+            {showSuggestions && suggestions.length > 0 && !isEditing && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded shadow-lg z-30 max-h-64 overflow-y-auto">
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); applySuggestion(s); }}
+                    className="w-full text-left px-3 py-2 hover:bg-sky-50 border-b border-gray-100 last:border-0"
+                  >
+                    <div className="text-sm font-medium text-gray-800">{s.phone} · {s.name || '(không tên)'}</div>
+                    {(s.dropoffMethod || s.dropoffAddress) && (
+                      <div className="text-xs text-gray-500 truncate">{s.dropoffMethod} {s.dropoffAddress && `— ${s.dropoffAddress}`}</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         {foundPassenger && (
           <div className="ml-[94px] px-2 py-1 bg-emerald-50 border border-emerald-300 rounded text-xs text-emerald-600">
