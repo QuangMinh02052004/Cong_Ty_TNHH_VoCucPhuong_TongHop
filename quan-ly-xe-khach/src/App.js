@@ -17,6 +17,7 @@ import AuditLogPage from './pages/AuditLogPage';
 import ReportsPage from './pages/ReportsPage';
 import DashboardPage from './pages/DashboardPage';
 import CustomerHistoryPage from './pages/CustomerHistoryPage';
+import CallListPage from './pages/CallListPage';
 
 // Components
 import MainLayout from './components/MainLayout';
@@ -153,6 +154,7 @@ function App() {
                       </ProtectedRoute>
                     } />
                     <Route path="/customer-history" element={<CustomerHistoryPage />} />
+                    <Route path="/call-list" element={<CallListPage />} />
                     <Route path="/hang-hoa" element={
                       <ProtectedRoute requiresManager>
                         <HangHoaPage />
