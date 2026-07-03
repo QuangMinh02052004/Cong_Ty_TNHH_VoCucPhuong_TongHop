@@ -281,7 +281,7 @@ const PassengerFormNew = () => {
         >×</button>
       </div>
 
-      <div className="px-4 py-3 space-y-2.5 flex-1">
+      <div className="px-4 py-3 space-y-3 flex-1">
         {/* Điện thoại */}
         <div className={row}>
           <label className={lbl}>Điện thoại</label>
@@ -431,7 +431,7 @@ const PassengerFormNew = () => {
         <span className="font-bold text-gray-800 text-sm uppercase">Thông tin thanh toán</span>
       </div>
 
-      <div className="px-4 py-3 space-y-2.5">
+      <div className="px-4 py-3 space-y-3">
         {/* Thực thu */}
         <div className={row}>
           <label className={lbl}>Thực thu <span className="text-red-500">*</span></label>

@@ -8,13 +8,12 @@ import { BookingProvider } from './context/BookingContext';
 // Pages
 import LoginPage from './pages/LoginPage';
 import HangHoaPage from './pages/HangHoaPage';
-import DieuHanhPage from './pages/DieuHanhPage';
 import ProfilePage from './pages/ProfilePage';
 import UserManagementPage from './pages/UserManagementPage';
 import RouteManagementPage from './pages/RouteManagementPage';
 import VehicleDriverPage from './pages/VehicleDriverPage';
+import StationAliasPage from './pages/StationAliasPage';
 import AuditLogPage from './pages/AuditLogPage';
-import ReportsPage from './pages/ReportsPage';
 import DashboardPage from './pages/DashboardPage';
 import CustomerHistoryPage from './pages/CustomerHistoryPage';
 import CallListPage from './pages/CallListPage';
@@ -138,14 +137,14 @@ function App() {
                         <VehicleDriverPage />
                       </ProtectedRoute>
                     } />
+                    <Route path="/admin/station-aliases" element={
+                      <ProtectedRoute requiresAdmin>
+                        <StationAliasPage />
+                      </ProtectedRoute>
+                    } />
                     <Route path="/admin/audit-log" element={
                       <ProtectedRoute requiresAdmin>
                         <AuditLogPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/admin/reports" element={
-                      <ProtectedRoute requiresAdmin>
-                        <ReportsPage />
                       </ProtectedRoute>
                     } />
                     <Route path="/admin/dashboard" element={
@@ -158,11 +157,6 @@ function App() {
                     <Route path="/hang-hoa" element={
                       <ProtectedRoute requiresManager>
                         <HangHoaPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/dieu-hanh" element={
-                      <ProtectedRoute requiresManager>
-                        <DieuHanhPage />
                       </ProtectedRoute>
                     } />
                     <Route path="*" element={<Navigate to="/" replace />} />

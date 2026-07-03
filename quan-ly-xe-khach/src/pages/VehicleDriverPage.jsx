@@ -289,7 +289,7 @@ const VehicleDriverPage = () => {
             onChange={handleExcelFileBoth} />
           <button onClick={() => bothFileRef.current?.click()}
             className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-lg transition shadow-sm whitespace-nowrap">
-            📥 Import 1 file (2 sheet)
+            Import 1 file (2 sheet)
           </button>
           <p className="text-xs text-gray-400 mt-1 text-right">Sheet 1: Biển số · Sheet 2: Tài xế</p>
         </div>
@@ -314,7 +314,7 @@ const VehicleDriverPage = () => {
               <div className="flex gap-3 mb-4">
                 {/* Xe */}
                 <div className="flex-1">
-                  <p className="text-xs font-semibold text-amber-700 mb-1">🚌 Biển số xe</p>
+                  <p className="text-xs font-semibold text-amber-700 mb-1">Biển số xe</p>
                   <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 sticky top-0"><tr><th className="px-2 py-1.5 text-left text-xs font-semibold text-gray-500">Biển số</th></tr></thead>
@@ -332,7 +332,7 @@ const VehicleDriverPage = () => {
                 </div>
                 {/* Tài xế */}
                 <div className="flex-1">
-                  <p className="text-xs font-semibold text-sky-700 mb-1">👤 Tài xế</p>
+                  <p className="text-xs font-semibold text-sky-700 mb-1">Tài xế</p>
                   <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 sticky top-0"><tr><th className="px-2 py-1.5 text-left text-xs font-semibold text-gray-500">Tên</th><th className="px-2 py-1.5 text-left text-xs font-semibold text-gray-500">SĐT</th></tr></thead>
@@ -395,11 +395,11 @@ const VehicleDriverPage = () => {
       <div className="flex gap-2 mb-6 border-b border-gray-200">
         <button onClick={() => { setTab('vehicles'); cancelDriverEdit(); cancelVehicleEdit(); }}
           className={`px-6 py-3 font-semibold text-sm transition border-b-2 -mb-px ${tab === 'vehicles' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-          🚌 Biển số xe <span className="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">{vehicles.length}</span>
+          Biển số xe <span className="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">{vehicles.length}</span>
         </button>
         <button onClick={() => { setTab('drivers'); cancelVehicleEdit(); cancelDriverEdit(); }}
           className={`px-6 py-3 font-semibold text-sm transition border-b-2 -mb-px ${tab === 'drivers' ? 'border-sky-500 text-sky-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-          👤 Tài xế <span className="ml-1 text-xs bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-full">{drivers.length}</span>
+          Tài xế <span className="ml-1 text-xs bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-full">{drivers.length}</span>
         </button>
       </div>
 
@@ -409,7 +409,7 @@ const VehicleDriverPage = () => {
           {/* Form thêm/sửa */}
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 mb-4">
             <h2 className="font-semibold text-gray-700 mb-4 text-base">
-              {editingVehicleId ? '✏️ Sửa biển số xe' : '➕ Thêm xe mới'}
+              {editingVehicleId ? 'Sửa biển số xe' : 'Thêm xe mới'}
             </h2>
             <div className="flex gap-3 items-start">
               <div className="flex-1">
@@ -458,12 +458,12 @@ const VehicleDriverPage = () => {
                 onChange={e => handleExcelFile(e, 'vehicles')} />
               <button onClick={() => vehicleFileRef.current?.click()}
                 className="px-3 py-1.5 text-sm text-emerald-600 border border-emerald-300 rounded-lg hover:bg-emerald-50 transition whitespace-nowrap font-medium">
-                📥 Import Excel
+                Import Excel
               </button>
             </div>
             {filteredVehicles.length === 0 ? (
               <div className="py-10 text-center text-gray-400">
-                <p className="text-3xl mb-2">🚌</p>
+                
                 <p className="text-sm">{vehicleSearch ? 'Không tìm thấy biển số phù hợp' : 'Chưa có xe nào'}</p>
               </div>
             ) : (
@@ -524,7 +524,7 @@ const VehicleDriverPage = () => {
           {/* Form */}
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 mb-4">
             <h2 className="font-semibold text-gray-700 mb-4 text-base">
-              {editingDriverId ? '✏️ Sửa thông tin tài xế' : '➕ Thêm tài xế mới'}
+              {editingDriverId ? 'Sửa thông tin tài xế' : 'Thêm tài xế mới'}
             </h2>
             <div className="flex gap-3 items-end flex-wrap">
               <div className="flex-1 min-w-[160px]">
@@ -574,12 +574,12 @@ const VehicleDriverPage = () => {
                 onChange={e => handleExcelFile(e, 'drivers')} />
               <button onClick={() => driverFileRef.current?.click()}
                 className="px-3 py-1.5 text-sm text-emerald-600 border border-emerald-300 rounded-lg hover:bg-emerald-50 transition whitespace-nowrap font-medium">
-                📥 Import Excel
+                Import Excel
               </button>
             </div>
             {filteredDrivers.length === 0 ? (
               <div className="py-10 text-center text-gray-400">
-                <p className="text-3xl mb-2">👤</p>
+                
                 <p className="text-sm">{driverSearch ? 'Không tìm thấy tài xế phù hợp' : 'Chưa có tài xế nào'}</p>
               </div>
             ) : (

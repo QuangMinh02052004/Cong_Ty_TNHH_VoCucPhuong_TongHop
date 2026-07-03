@@ -11,10 +11,12 @@ const Header = () => {
   const { user, logout } = useAuth();
   const { bookings } = useBooking();
 
-  // Tính tổng doanh thu từ tất cả các booking (số tiền đã thanh toán)
+  // Doanh thu TongHop: chỉ tính vé có tiền thực (Thực thu > 0), bỏ vé đã hủy.
   const totalRevenue = useMemo(() => {
     return bookings.reduce((total, booking) => {
-      return total + (Number(booking.paid) || 0);
+      if (booking.status === 'cancelled') return total;
+      const amount = Number(booking.amount) || 0;
+      return amount > 0 ? total + amount : total;
     }, 0);
   }, [bookings]);
 
@@ -85,19 +87,6 @@ const Header = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
               <span className="hidden sm:inline">Hàng hóa</span>
-            </button>
-            <button
-              onClick={() => navigate('/dieu-hanh')}
-              className={`relative px-2 sm:px-4 h-12 transition text-sm font-normal flex items-center gap-1.5 sm:gap-2 ${
-                isActive('/dieu-hanh')
-                  ? 'text-white bg-slate-800 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-blue-400'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-              </svg>
-              <span className="hidden sm:inline">Điều hành</span>
             </button>
           </nav>
 

@@ -156,55 +156,23 @@ const HangHoaPage = () => {
     } catch { return dateStr; }
   };
 
-  // === Render stats cards ===
+  // === Render stats cards (đơn giản, không icon) ===
   const renderStats = (stats) => {
     if (!stats) return null;
+    const cards = [
+      { label: 'Tổng đơn', value: stats.total_freight || 0, color: 'text-gray-800' },
+      { label: 'Chờ xử lý', value: stats.pending || 0, color: 'text-yellow-600' },
+      { label: 'Đã giao', value: stats.delivered || 0, color: 'text-green-600' },
+      { label: 'Doanh thu', value: `${new Intl.NumberFormat('vi-VN').format(stats.total_revenue || 0)}đ`, color: 'text-emerald-600' },
+    ];
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Tổng đơn</p>
-              <p className="text-2xl font-bold text-gray-800">{stats.total_freight || 0}</p>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-            </div>
+        {cards.map((c, i) => (
+          <div key={i} className="bg-white rounded-lg border border-gray-200 p-4">
+            <p className="text-sm text-gray-500">{c.label}</p>
+            <p className={`text-2xl font-bold ${c.color}`}>{c.value}</p>
           </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Chờ xử lý</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.pending || 0}</p>
-            </div>
-            <div className="p-3 bg-yellow-100 rounded-lg">
-              <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Đã giao</p>
-              <p className="text-2xl font-bold text-green-600">{stats.delivered || 0}</p>
-            </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Doanh thu</p>
-              <p className="text-xl font-bold text-emerald-600">{new Intl.NumberFormat('vi-VN').format(stats.total_revenue || 0)}đ</p>
-            </div>
-            <div className="p-3 bg-emerald-100 rounded-lg">
-              <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
     );
   };
@@ -227,19 +195,9 @@ const HangHoaPage = () => {
           </thead>
           <tbody className="divide-y divide-gray-200">
             {isLoading ? (
-              <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-500">
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  Đang tải...
-                </div>
-              </td></tr>
+              <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-500">Đang tải...</td></tr>
             ) : list.length === 0 ? (
-              <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-500">
-                <div className="flex flex-col items-center">
-                  <svg className="w-12 h-12 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-                  <p>Không có đơn hàng dọc đường nào</p>
-                </div>
-              </td></tr>
+              <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-500">Không có đơn hàng dọc đường nào</td></tr>
             ) : (
               list.map(freight => (
                 <tr key={freight.id} className="hover:bg-gray-50">
@@ -290,8 +248,7 @@ const HangHoaPage = () => {
             <h1 className="text-2xl font-bold text-gray-800">Quản Lý Hàng Hóa</h1>
             <p className="text-sm text-gray-500 mt-1">Đơn hàng dọc đường từ hệ thống Nhập Hàng</p>
           </div>
-          <button onClick={handleRefresh} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-semibold flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          <button onClick={handleRefresh} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-semibold">
             Làm mới
           </button>
         </div>
@@ -299,9 +256,9 @@ const HangHoaPage = () => {
         {/* Tabs */}
         <div className="flex gap-2 mt-4 border-t pt-4">
           {[
-            { key: 'homnay', label: '📦 Hôm Nay' },
-            { key: 'tongquan', label: '📊 Tổng Quan' },
-            { key: 'theoxe', label: '🚐 Theo Xe' },
+            { key: 'homnay', label: 'Hôm Nay' },
+            { key: 'tongquan', label: 'Tổng Quan' },
+            { key: 'theoxe', label: 'Theo Xe' },
           ].map(tab => (
             <button
               key={tab.key}
@@ -379,18 +336,9 @@ const HangHoaPage = () => {
           </div>
 
           {vehicleLoading ? (
-            <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
-              <div className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                Đang tải...
-              </div>
-            </div>
+            <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">Đang tải...</div>
           ) : vehicleData.length === 0 ? (
             <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
-              <svg className="w-12 h-12 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
-              </svg>
               <p>Không tìm thấy hàng hóa theo xe</p>
               <p className="text-sm text-gray-400 mt-1">Hàng hóa sẽ hiện khi bên Nhập Hàng gán biển số xe cho đơn hàng</p>
             </div>
@@ -398,17 +346,9 @@ const HangHoaPage = () => {
             vehicleData.map(veh => (
               <div key={veh.vehicle} className="bg-white rounded-lg shadow-md overflow-hidden">
                 <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition" onClick={() => setExpandedVehicle(expandedVehicle === veh.vehicle ? null : veh.vehicle)}>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-800">{veh.vehicle}</h3>
-                      <p className="text-sm text-gray-500">{veh.totalOrders} đơn hàng</p>
-                    </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">{veh.vehicle}</h3>
+                    <p className="text-sm text-gray-500">{veh.totalOrders} đơn hàng</p>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
