@@ -622,9 +622,9 @@ const SeatMapNew = () => {
                             <div
                               className="px-2.5 py-1 rounded-md border-2 font-bold text-lg"
                               style={{
-                                borderColor: isDefault ? '#0ea5e9' : statusObj.bg,
-                                backgroundColor: isDefault ? '#0ea5e9' : statusObj.bg,
-                                color: '#ffffff',
+                                borderColor: isDefault ? '#d1d5db' : statusObj.bg,
+                                backgroundColor: isDefault ? '#ffffff' : statusObj.bg,
+                                color: isDefault ? '#111827' : '#ffffff',
                               }}
                             >
                               {passenger.phone}
