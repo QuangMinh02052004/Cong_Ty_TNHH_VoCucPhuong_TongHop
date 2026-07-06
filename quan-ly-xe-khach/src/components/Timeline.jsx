@@ -34,19 +34,19 @@ const Timeline = () => {
 
   const currentBookings = selectedTrip ? bookings.filter(b => b.timeSlotId === selectedTrip.id) : [];
   const totalTickets = currentBookings.length;
-  const paidTickets = currentBookings.filter(b => b.paid >= b.amount).length;
+  const paidTickets = currentBookings.filter(b => (Number(b.paid) || 0) >= (Number(b.amount) || 0)).length;
   const docDuongCount = currentBookings.filter(b => b.pickupMethod === 'Dọc đường').length;
   const taiBenCount = currentBookings.filter(b => b.pickupMethod === 'Tại bến').length;
   const taiNhaCount = currentBookings.filter(b => b.pickupMethod === 'Tại nhà').length;
 
-  // Tính toán tiền
-  const totalAmount = currentBookings.reduce((sum, b) => sum + (b.amount || 0), 0);
-  const paidAmount = currentBookings.reduce((sum, b) => sum + (b.paid || 0), 0);
+  // Tính toán tiền — ép Number vì PostgreSQL trả amount/paid dạng chuỗi (tránh NaN do nối chuỗi)
+  const totalAmount = currentBookings.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+  const paidAmount = currentBookings.reduce((sum, b) => sum + (Number(b.paid) || 0), 0);
   const remainingAmount = totalAmount - paidAmount;
 
   // Format tiền VND
   const formatMoney = (amount) => {
-    return new Intl.NumberFormat('vi-VN').format(amount);
+    return new Intl.NumberFormat('vi-VN').format(Number(amount) || 0);
   };
 
   // Parse ngày
