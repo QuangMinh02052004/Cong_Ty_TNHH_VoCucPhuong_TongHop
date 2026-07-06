@@ -279,7 +279,7 @@ const PassengerFormNew = () => {
     <div className="bg-white flex flex-col min-h-full">
       {/* THÔNG TIN HÀNH KHÁCH */}
       <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-        <span className="font-bold text-blue-700 text-sm uppercase">
+        <span className="font-bold text-gray-800 text-sm uppercase">
           {isEditing ? 'Chỉnh sửa hành khách' : 'Thông tin hành khách'}
         </span>
         <button
@@ -439,7 +439,7 @@ const PassengerFormNew = () => {
 
       {/* THÔNG TIN THANH TOÁN */}
       <div className="px-4 py-2.5 border-y border-gray-200 bg-gray-50">
-        <span className="font-bold text-blue-700 text-sm uppercase">Thông tin thanh toán</span>
+        <span className="font-bold text-gray-800 text-sm uppercase">Thông tin thanh toán</span>
       </div>
 
       <div className="px-4 py-3 space-y-3">

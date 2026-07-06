@@ -363,6 +363,106 @@ const SeatMapNew = () => {
       <div className="p-4">
         {activeTab === 'seatMap' && (
           <div>
+            {/* Seat Numbers - 28 ghế từ 1-28 */}
+            <div className="flex flex-wrap gap-1 mb-4 border-b border-gray-200 pb-3">
+              {Array.from({ length: 28 }, (_, i) => i + 1).map(num => {
+                const booking = currentBookings.find(b => b.seatNumber === num);
+                const isBooked = !!booking;
+                const isLocked = selectedTrip && isSeatLocked(selectedTrip.id, num);
+                const isLockedByMe = selectedTrip && isSeatLockedByMe(selectedTrip.id, num);
+                const lockInfo = selectedTrip && getSeatLockInfo(selectedTrip.id, num);
+
+                // Xác định màu và trạng thái của ghế
+                let buttonClass = 'bg-white border-gray-300 hover:border-sky-400 cursor-pointer';
+                let title = `Ghế ${num} - Trống`;
+
+                if (isBooked) {
+                  // Giữ chỗ (chưa thu tiền) = cam; đã đặt/đã thu = xanh lá
+                  if (booking.status === 'held') {
+                    buttonClass = 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600 cursor-pointer';
+                    title = `Ghế ${num} - ${booking.name} (Giữ chỗ)`;
+                  } else {
+                    buttonClass = 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600 cursor-pointer';
+                    title = `Ghế ${num} - ${booking.name}`;
+                  }
+                } else if (isLocked) {
+                  buttonClass = 'bg-gray-300 text-gray-500 border-gray-400 cursor-not-allowed';
+                  title = `Ghế ${num} - Đã bị khóa bởi ${lockInfo?.lockedBy}`;
+                } else if (isLockedByMe) {
+                  buttonClass = 'bg-sky-400 text-white border-sky-500 hover:bg-sky-500 cursor-pointer';
+                  title = `Ghế ${num} - Bạn đang chọn ghế này`;
+                } else if (isTransferMode) {
+                  // Kiểm tra ghế này có trong hàng đợi chuyển không
+                  const inQueue = transferQueue.find(b => b.seatNumber === num && b.timeSlotId === selectedTrip?.id);
+                  if (inQueue) {
+                    buttonClass = 'bg-amber-400 text-white border-amber-500 cursor-pointer';
+                    title = `Ghế ${num} - Đang trong hàng đợi chuyển (nhấn để bỏ)`;
+                  } else {
+                    buttonClass = 'bg-indigo-100 text-indigo-600 border-indigo-400 border-dashed hover:bg-indigo-300 cursor-pointer';
+                    title = `Ghế ${num} - Nhấn để chuyển đến đây`;
+                  }
+                }
+
+                return (
+                  <button
+                    key={num}
+                    onClick={() => {
+                      if (isBooked && isTransferMode) {
+                        // Trong transfer mode: click ghế có khách → toggle chọn hoặc hoán đổi
+                        const inQueue = transferQueue.find(b => b.id === booking.id);
+                        if (inQueue) {
+                          // Đã trong queue → bỏ chọn
+                          setTransferQueue(transferQueue.filter(b => b.id !== booking.id));
+                        } else {
+                          // Chưa trong queue → chuyển/hoán đổi vào ghế này
+                          handleTransferToSeat(num);
+                        }
+                      } else if (isBooked) {
+                        handleEdit(booking);
+                      } else if (isTransferMode && !isLocked) {
+                        handleTransferToSeat(num);
+                      } else if (!isLocked) {
+                        // Ghế trống hoặc do mình khóa - có thể click
+                      }
+                    }}
+                    disabled={isLocked}
+                    title={title}
+                    className={`w-10 h-10 border-2 rounded-lg text-sm font-semibold transition ${buttonClass}`}
+                  >
+                    {num}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Chú thích màu ghế */}
+            <div className="flex flex-wrap gap-4 mb-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-white border-2 border-gray-300 rounded"></div>
+                <span className="text-gray-600">Trống</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-emerald-500 border-2 border-emerald-600 rounded"></div>
+                <span className="text-gray-600">Đã đặt</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-amber-500 border-2 border-amber-600 rounded"></div>
+                <span className="text-gray-600">Giữ chỗ</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-gray-300 border-2 border-gray-400 rounded relative">
+                  <svg className="w-3 h-3 text-red-500 absolute -top-1 -right-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <span className="text-gray-600">Đang bị khóa (người khác)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-sky-400 border-2 border-sky-500 rounded"></div>
+                <span className="text-gray-600">Bạn đang chọn</span>
+              </div>
+            </div>
+
             {/* Transfer mode banner */}
             {isTransferMode && (
               <div className={`mb-4 p-3 border-2 rounded-lg ${
@@ -470,12 +570,7 @@ const SeatMapNew = () => {
                     cardClass = isPrinted ? 'border-slate-300 bg-slate-50 shadow-sm' : 'border-blue-200 bg-blue-50 shadow-sm';
                   }
                 } else if (hasPassenger) {
-                  // Giữ chỗ (chưa thu) = viền/nền cam; đã đặt = xanh; đã in = xám
-                  if (passenger.status === 'held') {
-                    cardClass = 'border-amber-300 bg-amber-50 shadow-sm';
-                  } else {
-                    cardClass = isPrinted ? 'border-slate-300 bg-slate-50 shadow-sm' : 'border-blue-200 bg-blue-50 shadow-sm';
-                  }
+                  cardClass = isPrinted ? 'border-slate-300 bg-slate-50 shadow-sm' : 'border-blue-200 bg-blue-50 shadow-sm';
                 } else if (isLocked) {
                   cardClass = 'border-slate-300 bg-slate-100';
                 } else if (isLockedByMe) {
@@ -531,15 +626,8 @@ const SeatMapNew = () => {
                         >
                           {/* Header: Ghế + SĐT trong khung màu */}
                           <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center gap-1.5">
-                              <div className="text-2xl font-bold text-sky-600">
-                                {seatNum}
-                              </div>
-                              {passenger.status === 'held' && (
-                                <span className="text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded">
-                                  Giữ chỗ
-                                </span>
-                              )}
+                            <div className="text-2xl font-bold text-sky-600">
+                              {seatNum}
                             </div>
                             <div
                               className="px-2.5 py-1 rounded-md border-2 font-bold text-lg"
