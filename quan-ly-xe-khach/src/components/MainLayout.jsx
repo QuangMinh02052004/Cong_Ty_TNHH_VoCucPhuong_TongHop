@@ -17,8 +17,7 @@ const MainLayout = ({ children }) => {
   // vé đã hủy KHÔNG cộng. Cộng theo đúng số tiền Thực thu tương ứng.
   const totalRevenue = useMemo(() => {
     return bookings.reduce((total, booking) => {
-      // Bỏ vé đã hủy và vé chỉ giữ chỗ (chưa thu tiền) khỏi doanh thu.
-      if (booking.status === 'cancelled' || booking.status === 'held') return total;
+      if (booking.status === 'cancelled') return total;
       const amount = Number(booking.amount) || 0;
       return amount > 0 ? total + amount : total;
     }, 0);

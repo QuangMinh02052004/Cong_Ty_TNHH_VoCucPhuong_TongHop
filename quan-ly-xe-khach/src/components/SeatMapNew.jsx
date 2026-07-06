@@ -377,14 +377,8 @@ const SeatMapNew = () => {
                 let title = `Ghế ${num} - Trống`;
 
                 if (isBooked) {
-                  // Giữ chỗ (chưa thu tiền) = cam; đã đặt/đã thu = xanh lá
-                  if (booking.status === 'held') {
-                    buttonClass = 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600 cursor-pointer';
-                    title = `Ghế ${num} - ${booking.name} (Giữ chỗ)`;
-                  } else {
-                    buttonClass = 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600 cursor-pointer';
-                    title = `Ghế ${num} - ${booking.name}`;
-                  }
+                  buttonClass = 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600 cursor-pointer';
+                  title = `Ghế ${num} - ${booking.name}`;
                 } else if (isLocked) {
                   buttonClass = 'bg-gray-300 text-gray-500 border-gray-400 cursor-not-allowed';
                   title = `Ghế ${num} - Đã bị khóa bởi ${lockInfo?.lockedBy}`;
@@ -444,10 +438,6 @@ const SeatMapNew = () => {
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 bg-emerald-500 border-2 border-emerald-600 rounded"></div>
                 <span className="text-gray-600">Đã đặt</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 bg-amber-500 border-2 border-amber-600 rounded"></div>
-                <span className="text-gray-600">Giữ chỗ</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 bg-gray-300 border-2 border-gray-400 rounded relative">

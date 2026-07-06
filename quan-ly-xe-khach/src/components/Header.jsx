@@ -14,7 +14,7 @@ const Header = () => {
   // Doanh thu TongHop: chỉ tính vé có tiền thực (Thực thu > 0), bỏ vé đã hủy.
   const totalRevenue = useMemo(() => {
     return bookings.reduce((total, booking) => {
-      if (booking.status === 'cancelled' || booking.status === 'held') return total;
+      if (booking.status === 'cancelled') return total;
       const amount = Number(booking.amount) || 0;
       return amount > 0 ? total + amount : total;
     }, 0);
