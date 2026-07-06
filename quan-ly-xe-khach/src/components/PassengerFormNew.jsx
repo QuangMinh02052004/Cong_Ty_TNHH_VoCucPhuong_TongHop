@@ -188,7 +188,8 @@ const PassengerFormNew = () => {
     }
   };
 
-  const handleSubmit = async () => {
+  // mode: 'paid' = Thu tiền (thu đủ) | 'held' = Giữ chỗ (chưa thu, không tính doanh thu)
+  const handleSubmit = async (mode = 'paid') => {
     if (!formData.phone || !formData.name) {
       setModal({ isOpen: true, title: 'Thiếu thông tin', message: 'Vui lòng nhập số điện thoại và họ tên!', type: 'warning', cancelText: null, onConfirm: () => setModal(m => ({ ...m, isOpen: false })) });
       return;
@@ -209,18 +210,28 @@ const PassengerFormNew = () => {
           return;
         }
       }
-      addBooking(formData);
-      activityLogAPI.log({ action: 'add', description: `Thêm vé: ${formData.name} - Ghế ${formData.seatNumber} - SĐT ${formData.phone} - Chuyến ${selectedTrip?.time || ''} - Trả: ${formData.dropoffAddress || formData.dropoffMethod || 'Tại bến'}`, seatNumber: formData.seatNumber, userName: user?.fullName || user?.username, date: selectedDate, route: selectedRoute, timeSlot: selectedTrip?.time });
-      if (formData.seatNumber && selectedTrip) releaseSeat(selectedTrip.id, formData.seatNumber);
+      // Giữ chỗ: chưa thu tiền, đánh dấu held (không tính doanh thu).
+      // Thu tiền: thu đủ, paid = amount, đánh dấu paid.
+      const data = { ...formData };
+      if (mode === 'held') {
+        data.status = 'held';
+        data.paid = 0;
+      } else {
+        data.status = 'paid';
+        data.paid = data.amount;
+      }
+      addBooking(data);
+      activityLogAPI.log({ action: 'add', description: `${mode === 'held' ? 'Giữ chỗ' : 'Bán vé'}: ${data.name} - Ghế ${data.seatNumber} - SĐT ${data.phone} - Chuyến ${selectedTrip?.time || ''} - Trả: ${data.dropoffAddress || data.dropoffMethod || 'Tại bến'}`, seatNumber: data.seatNumber, userName: user?.fullName || user?.username, date: selectedDate, route: selectedRoute, timeSlot: selectedTrip?.time });
+      if (data.seatNumber && selectedTrip) releaseSeat(selectedTrip.id, data.seatNumber);
       try {
         await axios.post(`${API_URL}/customers`, {
-          phone: formData.phone, fullName: formData.name,
-          pickupType: formData.pickupMethod, pickupLocation: formData.pickupAddress,
-          dropoffType: formData.dropoffMethod, dropoffLocation: formData.dropoffAddress,
-          notes: formData.note
+          phone: data.phone, fullName: data.name,
+          pickupType: data.pickupMethod, pickupLocation: data.pickupAddress,
+          dropoffType: data.dropoffMethod, dropoffLocation: data.dropoffAddress,
+          notes: data.note
         });
       } catch (error) { /* ignore */ }
-      showToast('Đã thêm hành khách thành công!');
+      showToast(mode === 'held' ? 'Đã giữ chỗ!' : 'Đã bán vé (đã thu tiền)!');
     }
     resetForm();
     // Tự động đóng form sau khi thành công
@@ -492,25 +503,36 @@ const PassengerFormNew = () => {
 
       {/* Action Buttons */}
       <div className="flex border-t border-gray-300">
-        <button onClick={() => setFormData(prev => ({ ...prev, paid: prev.amount }))}
-          className="flex-1 py-3 text-sm font-bold text-blue-700 border-r border-gray-300 hover:bg-blue-50 transition">
-          Thu tiền
-        </button>
-        {isEditing && (
-          <button type="button" onClick={handleStartTransfer}
-            className="flex-1 py-3 text-sm font-bold text-orange-600 border-r border-gray-300 hover:bg-orange-50 transition">
-            Chuyển
-          </button>
-        )}
-        <button onClick={handleSubmit}
-          className="flex-1 py-3 text-sm font-bold text-emerald-700 hover:bg-emerald-50 transition">
-          {isEditing ? 'Cập nhật' : 'Thêm hành khách'}
-        </button>
-        {isEditing && (
-          <button onClick={() => { setIsEditing(false); setEditingId(null); resetForm(); }}
-            className="flex-1 py-3 text-sm font-bold text-gray-500 border-l border-gray-300 hover:bg-gray-100 transition">
-            Hủy
-          </button>
+        {isEditing ? (
+          <>
+            <button onClick={() => setFormData(prev => ({ ...prev, paid: prev.amount, status: 'paid' }))}
+              className="flex-1 py-3 text-sm font-bold text-blue-700 border-r border-gray-300 hover:bg-blue-50 transition">
+              Thu tiền
+            </button>
+            <button type="button" onClick={handleStartTransfer}
+              className="flex-1 py-3 text-sm font-bold text-orange-600 border-r border-gray-300 hover:bg-orange-50 transition">
+              Chuyển
+            </button>
+            <button onClick={() => handleSubmit()}
+              className="flex-1 py-3 text-sm font-bold text-emerald-700 hover:bg-emerald-50 transition">
+              Cập nhật
+            </button>
+            <button onClick={() => { setIsEditing(false); setEditingId(null); resetForm(); }}
+              className="flex-1 py-3 text-sm font-bold text-gray-500 border-l border-gray-300 hover:bg-gray-100 transition">
+              Hủy
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={() => handleSubmit('paid')}
+              className="flex-1 py-3 text-sm font-bold text-blue-700 border-r border-gray-300 hover:bg-blue-50 transition">
+              Thu tiền
+            </button>
+            <button onClick={() => handleSubmit('held')}
+              className="flex-1 py-3 text-sm font-bold text-amber-600 hover:bg-amber-50 transition">
+              Giữ chỗ
+            </button>
+          </>
         )}
       </div>
       {/* Toast notification */}
