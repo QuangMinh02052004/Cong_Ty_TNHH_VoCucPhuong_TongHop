@@ -244,17 +244,17 @@ const TimeSlotsNew = () => {
                 }
               `}
             >
-              {/* Vạch trái: progress fill (gradient từ dưới lên) */}
-              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-slate-100 overflow-hidden">
+              {/* Thanh ngang dưới đáy: đầy theo số ghế đã đặt — to, dễ thấy */}
+              <div className="absolute left-0 right-0 bottom-0 h-2.5 bg-slate-100 overflow-hidden">
                 <div
-                  className={`absolute left-0 right-0 bottom-0 transition-all ${
+                  className={`h-full transition-all ${
                     isFull ? 'bg-emerald-500' : hasBookings ? 'bg-blue-500' : 'bg-slate-200'
                   }`}
-                  style={{ height: `${fillPct}%` }}
+                  style={{ width: `${fillPct}%` }}
                 />
               </div>
 
-              <div className="pl-3.5 pr-2.5 py-2.5">
+              <div className="px-3 pt-2.5 pb-4">
                 {/* Dòng 1: Giờ to | "28/x trống" */}
                 <div className="flex items-baseline justify-between gap-1.5">
                   <span className={`text-xl font-semibold tracking-tight leading-none ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>

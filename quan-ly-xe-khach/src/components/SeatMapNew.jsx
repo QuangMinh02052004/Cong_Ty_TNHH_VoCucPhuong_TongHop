@@ -500,7 +500,7 @@ const SeatMapNew = () => {
                 return (
                   <div
                     key={seatNum}
-                    className={`relative border rounded-xl p-3 pb-9 hover:shadow-md transition ${cardClass}`}
+                    className={`relative border rounded-xl p-3 pb-5 hover:shadow-md transition ${cardClass}`}
                   >
                     {hasPassenger ? (
                       <>
@@ -645,19 +645,19 @@ const SeatMapNew = () => {
                           </button>
                         </div>
 
-                        {/* Progress bar thanh toán + người tạo — to, nằm ngang, dễ thấy */}
-                        <div className="absolute left-0 right-0 bottom-0 px-2 pb-1.5 bg-white/90 rounded-b">
-                          <div className="flex items-center justify-between text-sm mb-1">
-                            <span className="font-bold">
+                        {/* Progress bar thanh toán + nguời tạo (giống Anvui) */}
+                        <div className="absolute left-0 right-0 bottom-0 px-2 pb-1 bg-white/80 rounded-b">
+                          <div className="flex items-center justify-between text-[10px] text-slate-600 mb-0.5">
+                            <span className="font-semibold">
                               <span className={paidPct >= 100 ? 'text-emerald-600' : paidPct > 0 ? 'text-amber-600' : 'text-red-500'}>
                                 {amountPaid.toLocaleString('vi-VN')}
                               </span>
-                              <span className="text-slate-400"> / </span>
-                              <span className="text-slate-700">{amountTotal.toLocaleString('vi-VN')}</span>
+                              <span className="text-slate-400">/</span>
+                              <span>{amountTotal.toLocaleString('vi-VN')}</span>
                             </span>
-                            <span className="truncate ml-1 max-w-[45%] text-xs text-slate-500">{passenger.createdBy ? `G: ${passenger.createdBy}` : ''}</span>
+                            <span className="truncate ml-1 max-w-[55%]">{passenger.createdBy ? `G: ${passenger.createdBy}` : ''}</span>
                           </div>
-                          <div className="h-3 w-full bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-1.5 w-full bg-slate-200 rounded overflow-hidden">
                             <div className={`h-full ${progressColor} transition-all`} style={{ width: `${paidPct}%` }} />
                           </div>
                         </div>
