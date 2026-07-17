@@ -115,9 +115,7 @@ const AuditLogPage = () => {
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-          <svg className="w-5 h-5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          
           Lịch sử thao tác
           <span className="text-sm font-normal text-gray-500">({total.toLocaleString('vi-VN')} bản ghi)</span>
         </h2>

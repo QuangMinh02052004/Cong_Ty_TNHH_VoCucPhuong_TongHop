@@ -161,7 +161,8 @@ const PassengerFormNew = () => {
       if (name === 'dropoffMethod' && value === 'Tại bến') newData.dropoffAddress = '';
       return newData;
     });
-    if (name === 'phone') searchPassengerByPhone(value);
+    // Chỉ tra cứu khi vừa đủ 10 số — tránh gọi API lặp mỗi phím khi đã >=10 ký tự
+    if (name === 'phone' && value.length === 10) searchPassengerByPhone(value);
   };
 
   const handleNoteBlur = () => {
@@ -194,7 +195,12 @@ const PassengerFormNew = () => {
       return;
     }
     if (isEditing) {
-      updateBooking(editingId, formData);
+      try {
+        await updateBooking(editingId, formData);
+      } catch (err) {
+        setModal({ isOpen: true, title: 'Lỗi cập nhật', message: 'Không cập nhật được vé (lỗi mạng hoặc server). Vui lòng thử lại!', type: 'warning', cancelText: null, onConfirm: () => setModal(m => ({ ...m, isOpen: false })) });
+        return;
+      }
       activityLogAPI.log({ action: 'edit', description: `Sửa vé: ${formData.name} - Ghế ${formData.seatNumber} - SĐT ${formData.phone} - Chuyến ${selectedTrip?.time || ''} - Trả: ${formData.dropoffAddress || formData.dropoffMethod || 'Tại bến'}`, bookingId: editingId, seatNumber: formData.seatNumber, userName: user?.fullName || user?.username, date: selectedDate, route: selectedRoute, timeSlot: selectedTrip?.time });
       showToast('Đã cập nhật thông tin hành khách!');
       setIsEditing(false);
@@ -209,7 +215,13 @@ const PassengerFormNew = () => {
           return;
         }
       }
-      addBooking(formData);
+      // Await để bắt lỗi mạng — không await thì API fail vẫn báo "thành công" (mất đơn âm thầm)
+      try {
+        await addBooking(formData);
+      } catch (err) {
+        setModal({ isOpen: true, title: 'Lỗi lưu vé', message: 'Không lưu được vé (lỗi mạng hoặc server). Vui lòng thử lại!', type: 'warning', cancelText: null, onConfirm: () => setModal(m => ({ ...m, isOpen: false })) });
+        return;
+      }
       activityLogAPI.log({ action: 'add', description: `Thêm vé: ${formData.name} - Ghế ${formData.seatNumber} - SĐT ${formData.phone} - Chuyến ${selectedTrip?.time || ''} - Trả: ${formData.dropoffAddress || formData.dropoffMethod || 'Tại bến'}`, seatNumber: formData.seatNumber, userName: user?.fullName || user?.username, date: selectedDate, route: selectedRoute, timeSlot: selectedTrip?.time });
       if (formData.seatNumber && selectedTrip) releaseSeat(selectedTrip.id, formData.seatNumber);
       try {

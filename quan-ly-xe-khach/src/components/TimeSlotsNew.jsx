@@ -192,9 +192,7 @@ const TimeSlotsNew = () => {
       {/* Empty state - Không có timeslots */}
       {currentDayTimeSlots.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 px-4">
-          <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          
           <h3 className="text-lg font-semibold text-gray-600 mb-2">Chưa có khung giờ</h3>
           <p className="text-sm text-gray-500 mb-4 text-center">
             Ngày {selectedDate} - Tuyến {selectedRoute}
