@@ -425,6 +425,7 @@ export const BookingProvider = ({ children }) => {
         timeSlot: selectedTrip.time,
         date: selectedTrip.date,
         route: selectedTrip.route,  // Thêm tuyến đường
+        createdBy: currentUserName, // người bán — hiện "G: ..." trên thẻ ghế
       };
 
       const newBooking = await bookingAPI.create(newBookingData);
