@@ -108,27 +108,6 @@ const LoginPage = () => {
               )}
             </button>
           </form>
-
-          {/* Thông tin demo */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <p className="text-xs text-gray-600 mb-2 font-medium">
-              Tài khoản demo:
-            </p>
-            <div className="text-xs text-gray-700 space-y-1">
-              <div className="flex justify-between items-center">
-                <span className="font-mono">admin / admin123</span>
-                <span className="text-blue-600 text-xs">(Admin)</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-mono">quanly1 / admin123</span>
-                <span className="text-green-600 text-xs">(Quản lý)</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-mono">nhanvien1 / admin123</span>
-                <span className="text-gray-600 text-xs">(Nhân viên)</span>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
